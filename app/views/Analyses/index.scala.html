@@ -1,0 +1,7 @@
+@(analyses: Seq[Analysis])(implicit lang: Lang)
+
+<ul>
+@for(analysis <- analyses) {
+  <li><@analysis.uri/li>
+}
+</ul>
