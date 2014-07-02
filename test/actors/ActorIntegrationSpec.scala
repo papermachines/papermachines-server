@@ -23,7 +23,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       implicit val i = inbox()
 
       val input = Range(0, 10)
-      taskManager ! TaskManager.StartTask("timesTwo", TaskCoordinator.WorkBatch(input))
+      taskManager ! TaskManager.StartTask(TimesTwoAnalyzer, TaskCoordinator.WorkBatch(input))
 
       var finished = false
       while (!finished) {
@@ -43,7 +43,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       implicit val i = inbox()
 
       val input = Range(0, 10000)
-      taskManager ! TaskManager.StartTask("timesTwo", TaskCoordinator.WorkBatch(input))
+      taskManager ! TaskManager.StartTask(TimesTwoAnalyzer, TaskCoordinator.WorkBatch(input))
 
       var finished = false
       while (!finished) {
@@ -82,7 +82,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       val taskManager = Actors.taskManager
       implicit val system = Akka.system
       implicit val i = inbox()
-      taskManager ! TaskManager.StartTask("word-count", TaskCoordinator.WorkBatch(texts))
+      taskManager ! TaskManager.StartTask(WordCountAnalyzer, TaskCoordinator.WorkBatch(texts))
 
       val myName = i.receive(1 second) match {
         case TaskManager.Started(name) =>

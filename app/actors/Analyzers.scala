@@ -5,6 +5,7 @@ import akka.routing._
 import akka.event.Logging
 import scala.util.{ Try, Success, Failure }
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 import models.Text
 import models.FullText
@@ -12,7 +13,10 @@ import models.FullText
 abstract class Analyzer[T: ClassTag, R: ClassTag] {
   type Params = TaskManager.TaskParams
   type F = T => R
+  
+  val name: String
   def makeF(params: Params): T => R
+  val coordinatorClass: Class[_]
 
   class Coordinator(
     replyTo: ActorRef,
@@ -73,13 +77,13 @@ abstract class Analyzer[T: ClassTag, R: ClassTag] {
     }
   }
 
-  val coordinatorClass: Class[_]
   def actorProps(parent: ActorRef, params: Params) = {
     Props(coordinatorClass, parent, makeF(params))
   }
 }
 
 object TimesTwoAnalyzer extends Analyzer[Int, Int] {
+  val name = "timesTwo"
   def makeF(p: Params) = {
     { x: Int => x * 2 }
   }
@@ -89,6 +93,7 @@ object TimesTwoAnalyzer extends Analyzer[Int, Int] {
 }
 
 object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
+  val name = "word-count"
   def makeF(p: Params) = {
     { x: Text =>
       import FullText._
@@ -102,7 +107,7 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
 }
 
 object Analyzers {
-  val analyzers = Map("timesTwo" -> TimesTwoAnalyzer, "word-count" -> WordCountAnalyzer)
-
-  def apply(name: String) = analyzers.apply(name)
+  val analyzers = Seq(TimesTwoAnalyzer, WordCountAnalyzer)
+  val analyzerMap = analyzers.map {x => x.name -> x}.toMap
+  def apply(name: String) = analyzerMap.apply(name)
 }

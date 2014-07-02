@@ -14,7 +14,7 @@ object TaskManager {
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 
-  case class StartTask[T](workerType: String, batch: TaskCoordinator.WorkBatch[T], params: TaskParams = Map())
+  case class StartTask[T, R](analyzer: Analyzer[T, R], batch: TaskCoordinator.WorkBatch[T], params: TaskParams = Map())
   case object CouldNotStart
   case class Started(name: String)
   case class GetProgressFor(name: String)
@@ -72,10 +72,9 @@ class TaskManager extends Actor {
             outside.getOrElse(sender) ! TaskManager.TaskNotFound
         }
       }
-    case TaskManager.StartTask(workerType: String, work: TaskCoordinator.WorkBatch[_], params: TaskManager.TaskParams) =>
+    case TaskManager.StartTask(analyzer, work, params) =>
       outside = Some(sender)
       if (work.ts.size == 0) forwardToController(TaskManager.CouldNotStart)
-      val analyzer = Analyzers(workerType)
       val coordinator = context.actorOf(analyzer.actorProps(self, params))
       coordinator ! work
     case TaskManager.CancelTask(name) =>

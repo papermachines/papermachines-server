@@ -41,8 +41,8 @@ object Tasks extends Controller {
     }
   }
 
-  def startTask[T](workerType: String, work: Seq[T]) = {
-    taskManager ! TaskManager.StartTask(workerType, TaskCoordinator.WorkBatch(work))
+  def startTask[T, R](analyzer: Analyzer[T, R], work: Seq[T]) = {
+    taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work))
     i.receive(timeout) match {
       case TaskManager.Started(name) =>
         Success(name)
@@ -53,7 +53,7 @@ object Tasks extends Controller {
 
   def create = Action {
     val input = Seq[Int](1, 2)
-    startTask("timesTwo", input) match {
+    startTask(TimesTwoAnalyzer, input) match {
       case Success(name) =>
         Accepted(<a href="@routes.Tasks.find(name)">Status</a>)
       case Failure(e) =>
