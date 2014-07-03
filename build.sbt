@@ -13,6 +13,7 @@ libraryDependencies ++= Seq(
   "org.webjars" % "bootstrap" % "3.2.0",
   "com.typesafe.slick" %% "slick" % "2.0.2",
   "com.typesafe.play" %% "play-slick" % "0.6.0.1",
+  "org.apache.tika" % "tika-parsers" % "1.5",
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "org.scalatestplus" % "play_2.10" % "1.0.0" % "test"
 )
