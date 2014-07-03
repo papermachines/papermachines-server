@@ -5,15 +5,20 @@ import akka.routing._
 import akka.event.Logging
 import scala.util.{ Try, Success, Failure }
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
-
 import models.Text
 import models.FullText
+import play.api.data._
+import play.api.data.Forms._
+import java.net.URI
+import java.io.File
+import org.joda.time.DateTime
 
-abstract class Analyzer[T: ClassTag, R: ClassTag] {
+abstract class Analyzer[T, R] {
   type Params = TaskManager.TaskParams
   type F = T => R
-  
+
+  val form: Option[Form[Params]] = None
+
   val name: String
   def makeF(params: Params): T => R
   val coordinatorClass: Class[_]
@@ -83,9 +88,9 @@ abstract class Analyzer[T: ClassTag, R: ClassTag] {
 }
 
 object TimesTwoAnalyzer extends Analyzer[Int, Int] {
-  val name = "timesTwo"
+  val name = "times-two"
   def makeF(p: Params) = {
-    { x: Int => x * 2 }
+    { _ * 2 }
   }
   class WorkerImpl(f: F) extends Worker(f: F)
   class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
@@ -95,7 +100,7 @@ object TimesTwoAnalyzer extends Analyzer[Int, Int] {
 object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
   val name = "word-count"
   def makeF(p: Params) = {
-    { x: Text =>
+    { x =>
       import FullText._
       val words = x.text.toLowerCase.split(" ")
       words.groupBy(identity).mapValues(_.length)
@@ -106,8 +111,23 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
   val coordinatorClass = classOf[CoordinatorImpl]
 }
 
+object ExtractAnalyzer extends Analyzer[URI, Text] {
+  val name = "word-count"
+  def makeF(p: Params) = {
+    { x =>
+      val file = new File(x)
+      val output = new File(file.getParentFile(), file.getName + ".txt")
+      val newURI = output.toURI
+      Text(None, newURI, DateTime.now)
+    }
+  }
+  class WorkerImpl(f: F) extends Worker(f: F)
+  class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
+  val coordinatorClass = classOf[CoordinatorImpl]
+}
+
 object Analyzers {
   val analyzers = Seq(TimesTwoAnalyzer, WordCountAnalyzer)
-  val analyzerMap = analyzers.map {x => x.name -> x}.toMap
+  val analyzerMap = analyzers.map { x => x.name -> x }.toMap
   def apply(name: String) = analyzerMap.apply(name)
 }

@@ -10,7 +10,7 @@ import models._
 import scala.util.{ Try, Success, Failure }
 
 object TaskManager {
-  type TaskParams = Map[String, String]
+  type TaskParams = Map[String, Any]
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 

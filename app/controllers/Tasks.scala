@@ -53,7 +53,8 @@ object Tasks extends Controller {
 
   def create = Action {
     val input = Seq[Int](1, 2)
-    startTask(TimesTwoAnalyzer, input) match {
+    val analyzer = TimesTwoAnalyzer
+    startTask(analyzer, input) match {
       case Success(name) =>
         Accepted(<a href="@routes.Tasks.find(name)">Status</a>)
       case Failure(e) =>
