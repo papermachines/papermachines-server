@@ -9,53 +9,74 @@ import scala.language.postfixOps
 import play.api.libs.concurrent.Akka
 import java.nio.file.Files
 import java.io._
+import scala.io._
 import scala.util.Random
 import models.Text
 import org.joda.time.DateTime
+import scala.util.{ Try, Success, Failure }
 
 import scala.util.control.Breaks._
 
 class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
-  "A TimesTwoCoordinator" should {
-    "multiply 10 inputs by two" in {
-      val taskManager = Actors.taskManager
-      implicit val system = Akka.system
-      implicit val i = inbox()
 
-      val input = Range(0, 10)
-      taskManager ! TaskManager.StartTask(TimesTwoAnalyzer, TaskCoordinator.WorkBatch(input))
+  def testAnalyzer[T, R](
+    analyzer: Analyzer[T, R],
+    input: Seq[T],
+    onSuccess: Seq[Try[R]] => Unit,
+    params: TaskManager.Params = Map(),
+    checkInterval: Int = 100)(implicit app: play.api.Application) = {
+    val taskManager = Actors.taskManager
+    implicit val system = Akka.system
+    implicit val i = inbox()
 
-      var finished = false
-      while (!finished) {
-        i.receive(100 milliseconds) match {
-          case TaskManager.Started(name) =>
-          // do nothing
-          case TaskCoordinator.Results(_, maybeInts) =>
-            maybeInts.filter(_.isSuccess).size mustBe input.size
-            maybeInts.map(_.get) mustEqual input.map(_ * 2)
-            finished = true
+    taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(input), params)
+
+    val myName = i.receive(1 second) match {
+      case TaskManager.Started(name) =>
+        name
+    }
+
+    checkProgress(taskManager, myName, onSuccess)
+  }
+
+  def checkProgress[R](taskManager: ActorRef, myName: String, onSuccess: Seq[Try[R]] => Unit)(implicit i: ActorDSL.Inbox) = {
+    breakable {
+      for (_ <- 0 to 100) {
+        taskManager ! TaskManager.GetProgressFor(myName)
+        i.receive(1 second) match {
+          case TaskCoordinator.Progress(name, amt) =>
+            println(f"${amt * 100.0}%2.2f%%")
+            Thread.sleep(100)
+          case TaskCoordinator.Results(_, x) =>
+            onSuccess(x.asInstanceOf[Seq[Try[R]]])
+            break
         }
       }
     }
+  }
+
+  def readInString(file: File) = {
+    val source = Source.fromFile(file)
+    val string = source.getLines.mkString("\n")
+    source.close
+    string
+  }
+
+  "A TimesTwoAnalyzer" should {
+    "multiply 10 inputs by two" in {
+      val input = Range(0, 10)
+      testAnalyzer(TimesTwoAnalyzer, input, { maybeInts: Seq[Try[Int]] =>
+        maybeInts.filter(_.isSuccess).size mustBe input.size
+        maybeInts.map(_.get) mustEqual input.map(_ * 2)
+      })
+    }
+
     "multiply 10000 inputs by two" in {
-      val taskManager = Actors.taskManager
-      implicit val system = Akka.system
-      implicit val i = inbox()
-
       val input = Range(0, 10000)
-      taskManager ! TaskManager.StartTask(TimesTwoAnalyzer, TaskCoordinator.WorkBatch(input))
-
-      var finished = false
-      while (!finished) {
-        i.receive(10 seconds) match {
-          case TaskManager.Started(name) =>
-          // do nothing
-          case TaskCoordinator.Results(_, maybeInts) =>
-            maybeInts.filter(_.isSuccess).size mustBe input.size
-            maybeInts.map(_.get) mustEqual input.map(_ * 2)
-            finished = true
-        }
-      }
+      testAnalyzer(TimesTwoAnalyzer, input, { maybeInts: Seq[Try[Int]] =>
+        maybeInts.filter(_.isSuccess).size mustBe input.size
+        maybeInts.map(_.get) mustEqual input.map(_ * 2)
+      })
     }
   }
 
@@ -76,32 +97,37 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
     } yield Text(uri = uri, lastModified = new DateTime)
   }
 
-  "A WordCountCoordinator" should {
-    "count words in a set of texts" in {
+  "A WordCountAnalyzer" should {
+    "count words in a set of fake texts" in {
       val texts = createFakeTexts
-      val taskManager = Actors.taskManager
-      implicit val system = Akka.system
-      implicit val i = inbox()
-      taskManager ! TaskManager.StartTask(WordCountAnalyzer, TaskCoordinator.WorkBatch(texts))
+      testAnalyzer(WordCountAnalyzer, texts, { intmaps: Seq[Try[Map[String, Int]]] =>
+        intmaps.size mustBe texts.size
+      })
+    }
+  }
 
-      val myName = i.receive(1 second) match {
-        case TaskManager.Started(name) =>
-          name
+  "An ExtractAnalyzer" should {
+    "extract plain texts from PDFs" in {
+      val leavesDir = new File(getClass.getResource("leaves").toURI)
+      val pdfFilter = new java.io.FilenameFilter {
+        def accept(d: File, n: String) = n.toLowerCase.endsWith(".pdf")
       }
+      val pdfs = leavesDir.listFiles(pdfFilter).map(_.toURI)
 
-      breakable {
-        for (_ <- 0 to 100) {
-          taskManager ! TaskManager.GetProgressFor(myName)
-          i.receive(1 second) match {
-            case TaskCoordinator.Progress(name, amt) =>
-              println(f"${amt * 100.0}%2.2f%%")
-              Thread.sleep(100)
-            case TaskCoordinator.Results(_, intmaps) =>
-              intmaps.size mustBe texts.size
-              break
-          }
+      val outputPath = Files.createTempDirectory("output")
+      val params = Map("output-dir" -> outputPath.toUri)
+
+      testAnalyzer(ExtractAnalyzer, pdfs, { texts: Seq[Try[Text]] =>
+        texts.size mustBe pdfs.size
+        for (text <- texts) {
+          text.isSuccess mustBe true
+          val result = new File(text.get.asInstanceOf[Text].uri)
+          result.exists mustBe true
+
+          val string = readInString(result)
+          string.size must be > 0
         }
-      }
+      }, params)
     }
   }
 }

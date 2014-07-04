@@ -10,11 +10,12 @@ import models.FullText
 import play.api.data._
 import play.api.data.Forms._
 import java.net.URI
-import java.io.File
+import java.io._
 import org.joda.time.DateTime
+import org.apache.tika.Tika
 
 abstract class Analyzer[T, R] {
-  type Params = TaskManager.TaskParams
+  type Params = TaskManager.Params
   type F = T => R
 
   val form: Option[Form[Params]] = None
@@ -112,12 +113,31 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
 }
 
 object ExtractAnalyzer extends Analyzer[URI, Text] {
-  val name = "word-count"
+  val name = "extract"
+  val tika = new Tika
+    
+  def copy(input: Reader, output: Writer, bufSize: Int = 2048) = {
+    val buffer = Array.ofDim[Char](bufSize)
+    var count = -1
+
+    while ({ count = input.read(buffer); count > 0 })
+      output.write(buffer, 0, count)
+  }
+
   def makeF(p: Params) = {
+    val outputDir = new File(URI.create(p("output-dir").toString))
+    if (!outputDir.canWrite)
+      throw new IllegalArgumentException(s"Cannot write to $outputDir!")
+    
     { x =>
       val file = new File(x)
-      val output = new File(file.getParentFile(), file.getName + ".txt")
-      val newURI = output.toURI
+      val reader = tika.parse(file)
+      val outputFile = new File(outputDir, file.getName + ".txt")
+      val writer = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8")
+      
+      copy(reader, writer)
+
+      val newURI = outputFile.toURI
       Text(None, newURI, DateTime.now)
     }
   }

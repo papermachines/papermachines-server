@@ -10,11 +10,11 @@ import models._
 import scala.util.{ Try, Success, Failure }
 
 object TaskManager {
-  type TaskParams = Map[String, Any]
+  type Params = Map[String, Any]
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 
-  case class StartTask[T, R](analyzer: Analyzer[T, R], batch: TaskCoordinator.WorkBatch[T], params: TaskParams = Map())
+  case class StartTask[T, R](analyzer: Analyzer[T, R], batch: TaskCoordinator.WorkBatch[T], params: Params = Map())
   case object CouldNotStart
   case class Started(name: String)
   case class GetProgressFor(name: String)
