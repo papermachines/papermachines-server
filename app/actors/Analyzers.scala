@@ -21,14 +21,14 @@ abstract class Analyzer[T, R] {
   val form: Option[Form[Params]] = None
 
   val name: String
+  val maxWorkers: Int = 1
   def makeF(params: Params): T => R
   val coordinatorClass: Class[_]
 
   class Coordinator(
     replyTo: ActorRef,
     workerClass: Class[_],
-    f: F,
-    maxWorkers: Int = 1) extends Actor {
+    f: F) extends Actor {
     var done = 0
     var total = -1
     var results = Array[Try[R]]()
@@ -59,8 +59,15 @@ abstract class Analyzer[T, R] {
         context watch r
         router = router.addRoutee(r)
       case TaskWorker.Result(i, res) =>
-        results(i) = res.asInstanceOf[Try[R]]
+        val r = res.asInstanceOf[Try[R]]
+        results(i) = r
         done += 1
+        r match {
+          case Success(x) =>
+            log.debug(s"$x done.")
+          case Failure(e) =>
+            log.error(e.getMessage)
+        }
         if (done == total) replyTo ! TaskCoordinator.Results(self.path.name, results)
       case TaskCoordinator.GetProgress =>
         if (total == -1) replyTo ! TaskCoordinator.NoWorkReceived
@@ -115,7 +122,7 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
 object ExtractAnalyzer extends Analyzer[URI, Text] {
   val name = "extract"
   val tika = new Tika
-    
+
   def copy(input: Reader, output: Writer, bufSize: Int = 2048) = {
     val buffer = Array.ofDim[Char](bufSize)
     var count = -1
@@ -125,16 +132,16 @@ object ExtractAnalyzer extends Analyzer[URI, Text] {
   }
 
   def makeF(p: Params) = {
-    val outputDir = new File(URI.create(p("output-dir").toString))
+    val outputDir = new File(new URI((p \ "output-dir").as[String]))
     if (!outputDir.canWrite)
       throw new IllegalArgumentException(s"Cannot write to $outputDir!")
-    
+
     { x =>
       val file = new File(x)
       val reader = tika.parse(file)
       val outputFile = new File(outputDir, file.getName + ".txt")
       val writer = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8")
-      
+
       copy(reader, writer)
 
       val newURI = outputFile.toURI

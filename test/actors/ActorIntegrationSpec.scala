@@ -14,8 +14,8 @@ import scala.util.Random
 import models.Text
 import org.joda.time.DateTime
 import scala.util.{ Try, Success, Failure }
-
 import scala.util.control.Breaks._
+import play.api.libs.json._
 
 class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
 
@@ -23,7 +23,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
     analyzer: Analyzer[T, R],
     input: Seq[T],
     onSuccess: Seq[Try[R]] => Unit,
-    params: TaskManager.Params = Map(),
+    params: TaskManager.Params = Json.obj(),
     checkInterval: Int = 100)(implicit app: play.api.Application) = {
     val taskManager = Actors.taskManager
     implicit val system = Akka.system
@@ -115,7 +115,8 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       val pdfs = leavesDir.listFiles(pdfFilter).map(_.toURI)
 
       val outputPath = Files.createTempDirectory("output")
-      val params = Map("output-dir" -> outputPath.toUri)
+      val outputUri = outputPath.toUri
+      val params = Json.obj("output-dir" -> JsString(outputUri.toString))
 
       testAnalyzer(ExtractAnalyzer, pdfs, { texts: Seq[Try[Text]] =>
         texts.size mustBe pdfs.size

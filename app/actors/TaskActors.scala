@@ -8,13 +8,14 @@ import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 import models._
 import scala.util.{ Try, Success, Failure }
+import play.api.libs.json._
 
 object TaskManager {
-  type Params = Map[String, Any]
+  type Params = JsObject
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 
-  case class StartTask[T, R](analyzer: Analyzer[T, R], batch: TaskCoordinator.WorkBatch[T], params: Params = Map())
+  case class StartTask[T, R](analyzer: Analyzer[T, R], batch: TaskCoordinator.WorkBatch[T], params: Params = JsObject(Seq()))
   case object CouldNotStart
   case class Started(name: String)
   case class GetProgressFor(name: String)
@@ -22,7 +23,7 @@ object TaskManager {
   case class Canceled(name: String)
   case class Done(resultID: Long)
 
-  case object TaskNotFound
+  case object TaskNotFound  
 }
 
 object TaskCoordinator {
