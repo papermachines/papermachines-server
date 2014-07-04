@@ -4,6 +4,7 @@ import play.api.db.slick.Config.driver.simple._
 import scala.slick.lifted.ForeignKeyQuery
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
+import play.api.libs.json._
 import scala.slick.jdbc.meta.MTable
 import org.joda.time.DateTime
 import java.sql.Timestamp
@@ -18,6 +19,11 @@ abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) ext
     ts => new DateTime(ts.getTime))
 
   implicit val uriMapping = MappedColumnType.base[URI, String](_.toString, URI.create(_))
+
+  implicit val jsObjectToString = MappedColumnType.base[JsObject, String](
+    { p => Json.stringify(p) },
+    { s => Json.parse(s).as[JsObject] })
+
 }
 
 trait BasicCrud[T <: TableWithAutoIncId[R], R] {

@@ -18,10 +18,6 @@ case class Analysis(
   finishedAt: DateTime)
 
 class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "ANALYSIS_ID") {
-  implicit val paramToString = MappedColumnType.base[JsObject, String](
-    { p => Json.stringify(p) },
-    { s => Json.parse(s).as[JsObject] })
-
   def corpusID = column[Long]("CORP_ID")
   def analysisType = column[String]("ANALYSIS_TYPE")
   def params = column[JsObject]("ANALYSIS_PARAMS")
