@@ -94,7 +94,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       _ = pw.print(genDoc(i))
       _ = pw.close
       uri = newFile.toURI()
-    } yield Text(uri = uri, lastModified = new DateTime)
+    } yield Text(uri = uri, plaintextUri = Some(uri), metadata = Json.obj(), lastModified = new DateTime)
   }
 
   "A WordCountAnalyzer" should {
@@ -120,13 +120,17 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
 
       testAnalyzer(ExtractAnalyzer, pdfs, { texts: Seq[Try[Text]] =>
         texts.size mustBe pdfs.size
-        for (text <- texts) {
-          text.isSuccess mustBe true
-          val result = new File(text.get.asInstanceOf[Text].uri)
-          result.exists mustBe true
+        for (textTry <- texts) {
+          textTry.isSuccess mustBe true
+          val text = textTry.get.asInstanceOf[Text]
+          text.plaintextUri.nonEmpty mustBe true
+          text.plaintextUri.map { uri =>
+            val result = new File(uri)
+            result.exists mustBe true
 
-          val string = readInString(result)
-          string.size must be > 0
+            val string = readInString(result)
+            string.size must be > 0
+          }
         }
       }, params)
     }

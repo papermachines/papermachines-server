@@ -50,10 +50,15 @@ object Corpora extends BasicCrud[Corpora, Corpus] {
     val corpus = Corpus(None, name)
     val corpusID = (table returning table.map(_.id)) += corpus
 
+    val newTextsAdded = addTextsTo(corpusID, textsIn)
+    corpusID
+  }
+  
+  def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): Int = {
     val (textsToAdd, textsAdded) = textsIn.partition(_.id.isEmpty)
     val oldIds = textsAdded.map(_.id.get)
     val newIds = (texts returning texts.map(_.id)) ++= textsToAdd
     corporaTexts ++= Stream.continually(corpusID) zip (oldIds ++ newIds)
-    corpusID
+    newIds.size
   }
 }

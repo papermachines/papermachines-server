@@ -9,6 +9,7 @@ import models.Text
 import models.FullText
 import play.api.data._
 import play.api.data.Forms._
+import play.api.libs.json._
 import java.net.URI
 import java.io._
 import org.joda.time.DateTime
@@ -110,7 +111,7 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
   def makeF(p: Params) = {
     { x =>
       import FullText._
-      val words = x.text.toLowerCase.split(" ")
+      val words = x.text.get.toLowerCase.split(" ")
       words.groupBy(identity).mapValues(_.length)
     }
   }
@@ -145,7 +146,8 @@ object ExtractAnalyzer extends Analyzer[URI, Text] {
       copy(reader, writer)
 
       val newURI = outputFile.toURI
-      Text(None, newURI, DateTime.now)
+      val metadata = Json.obj()
+      Text(None, x.toURL.toURI, Some(newURI), metadata, DateTime.now)
     }
   }
   class WorkerImpl(f: F) extends Worker(f: F)

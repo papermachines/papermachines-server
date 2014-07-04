@@ -15,8 +15,7 @@ object Global extends GlobalSettings {
 object Fixtures {
   def insert() = {
     DAL.createTablesIfNotExisting()
-
-    //    DB.withSession { implicit s =>
-    //    }
+//    DB.withSession { implicit s =>
+//    }
   }
 }

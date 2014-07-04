@@ -4,6 +4,7 @@ import org.scalatest._
 import org.scalatestplus.play._
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
+import play.api.libs.json._
 import scala.slick.jdbc.meta.MTable
 import play.api.test.FakeApplication
 import org.joda.time.DateTime
@@ -32,8 +33,9 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
   val fakeTexts = (for {
     i <- 1 to 10
     uri = s"test$i"
+    meta = Json.obj()
     dt = new DateTime
-  } yield Text(None, new java.net.URI(uri), dt))
+  } yield Text(None, new java.net.URI(uri), None, meta, dt))
 
   "A Corpus" should {
     "be able to add new texts" in db { implicit s =>
