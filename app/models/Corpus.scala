@@ -5,8 +5,9 @@ import scala.slick.lifted.ForeignKeyQuery
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
 import scala.slick.jdbc.meta.MTable
+import play.api.libs.json._
 
-case class Corpus(id: Option[Long] = None, name: String) {
+case class Corpus(id: Option[Long] = None, name: String, externalID: Option[String] = None) extends Item {
   def texts(implicit s: Session): Seq[Text] = {
     val links = TableQuery[CorporaTexts]
     val texts = TableQuery[Texts]
@@ -17,10 +18,15 @@ case class Corpus(id: Option[Long] = None, name: String) {
   }
 }
 
+object CorpusJSON {
+  implicit val corpusFmt = Json.format[Corpus]
+}
+
 class Corpora(tag: Tag) extends TableWithAutoIncId[Corpus](tag, "CORPORA", "CORP_ID") {
   def name = column[String]("CORP_NAME")
+  def externalID = column[String]("CORP_EXTID", O.Nullable)
 
-  def * = (id.?, name) <> (Corpus.tupled, Corpus.unapply)
+  def * = (id.?, name, externalID.?) <> (Corpus.tupled, Corpus.unapply)
 }
 
 class CorporaTexts(tag: Tag) extends Table[(Long, Long)](tag, "CORPORA_TEXTS") {
@@ -53,12 +59,22 @@ object Corpora extends BasicCrud[Corpora, Corpus] {
     val newTextsAdded = addTextsTo(corpusID, textsIn)
     corpusID
   }
-  
-  def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): Int = {
+
+  def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): (Int, Int) = {
     val (textsToAdd, textsAdded) = textsIn.partition(_.id.isEmpty)
     val oldIds = textsAdded.map(_.id.get)
     val newIds = (texts returning texts.map(_.id)) ++= textsToAdd
     corporaTexts ++= Stream.continually(corpusID) zip (oldIds ++ newIds)
-    newIds.size
+    (oldIds.size, newIds.size)
+  }
+  
+  def findOrCreateByExternalID(corpus: Corpus)(implicit s: Session) = {
+    val existing = table.where(_.externalID === corpus.externalID).list
+    existing.headOption match {
+      case Some(corpusFound) =>
+        (corpusFound.id.get, false)
+      case None =>
+        (create(corpus), true)
+    }
   }
 }

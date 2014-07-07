@@ -112,7 +112,9 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
       val pdfFilter = new java.io.FilenameFilter {
         def accept(d: File, n: String) = n.toLowerCase.endsWith(".pdf")
       }
-      val pdfs = leavesDir.listFiles(pdfFilter).map(_.toURI)
+      val pdfs = leavesDir.listFiles(pdfFilter).map(_.toURI).map { uri =>
+      	Text(uri = uri)
+      }
 
       val outputPath = Files.createTempDirectory("output")
       val outputUri = outputPath.toUri

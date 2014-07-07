@@ -120,7 +120,7 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
   val coordinatorClass = classOf[CoordinatorImpl]
 }
 
-object ExtractAnalyzer extends Analyzer[URI, Text] {
+object ExtractAnalyzer extends Analyzer[Text, Text] {
   val name = "extract"
   val tika = new Tika
 
@@ -138,7 +138,7 @@ object ExtractAnalyzer extends Analyzer[URI, Text] {
       throw new IllegalArgumentException(s"Cannot write to $outputDir!")
 
     { x =>
-      val file = new File(x)
+      val file = new File(x.uri)
       val reader = tika.parse(file)
       val outputFile = new File(outputDir, file.getName + ".txt")
       val writer = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8")
@@ -146,8 +146,7 @@ object ExtractAnalyzer extends Analyzer[URI, Text] {
       copy(reader, writer)
 
       val newURI = outputFile.toURI
-      val metadata = Json.obj()
-      Text(None, x.toURL.toURI, Some(newURI), metadata, DateTime.now)
+      x.copy(plaintextUri = Some(newURI), lastModified = DateTime.now)
     }
   }
   class WorkerImpl(f: F) extends Worker(f: F)

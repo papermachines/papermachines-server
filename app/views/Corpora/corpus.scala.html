@@ -1,0 +1,10 @@
+@(corpus: models.Corpus, texts: Seq[models.Text])(implicit lang: Lang)
+
+@main(corpus.name) {
+<h2>@corpus.name</h2>
+	<ul>
+	@for(text <- texts) {
+		<li>@text.uri</li>
+	}
+	</ul>
+}

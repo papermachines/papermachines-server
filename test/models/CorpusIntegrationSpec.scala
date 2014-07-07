@@ -33,9 +33,7 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
   val fakeTexts = (for {
     i <- 1 to 10
     uri = s"test$i"
-    meta = Json.obj()
-    dt = new DateTime
-  } yield Text(None, new java.net.URI(uri), None, meta, dt))
+  } yield Text(uri = new java.net.URI(uri)))
 
   "A Corpus" should {
     "be able to add new texts" in db { implicit s =>

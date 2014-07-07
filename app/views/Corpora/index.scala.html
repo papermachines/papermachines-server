@@ -1,0 +1,9 @@
+@(corpora: Seq[models.Corpus])(implicit lang: Lang)
+
+@main("Index of Corpora") {
+	<ul>
+	@for(corpus <- corpora) {
+		<li>@corpus.name</li>
+	}
+	</ul>
+}

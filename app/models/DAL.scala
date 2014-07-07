@@ -26,12 +26,24 @@ abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) ext
 
 }
 
-trait BasicCrud[T <: TableWithAutoIncId[R], R] {
+trait Item {
+  def id: Option[Long]
+}
+
+trait BasicCrud[T <: TableWithAutoIncId[R], R <: Item] {
   val table: TableQuery[T]
 
   def create(item: R)(implicit s: Session): Long = {
     val itemID = (table returning table.map(_.id)) += item
     itemID
+  }
+
+  def createIfNotExists(item: R)(implicit s: Session): (Long, Boolean) = {
+    val itemOpt = item.id.flatMap(find)
+    itemOpt match {
+      case Some(itemFound) => (itemFound.id.get, false) // already existed
+      case None => (create(item), true) // newly created
+    }
   }
 
   def find(id: Long)(implicit s: Session): Option[R] = table.where(_.id === id).firstOption

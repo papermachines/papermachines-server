@@ -25,6 +25,7 @@ object Analyses extends Controller {
       val analysisOpt = models.Analyses.find(id)
       analysisOpt match {
         case Some(analysis) =>
+          // TODO figure out where analyses should really reside
           Redirect(analysis.uri.toURL.toString)
         case None => NotFound
       }

@@ -5,6 +5,10 @@ import play.api.mvc._
 import play.api.db.slick._
 import play.api.Play.current
 
+import play.api.libs.json._
+import models.CorpusJSON._
+import models.TextJSON._
+
 object Corpora extends Controller {
   def index = Action {
     DB.withSession { implicit s =>
@@ -13,11 +17,19 @@ object Corpora extends Controller {
     }
   }
 
-  def create = Action {
-    DB.withSession { implicit s =>
-      val status = "Beginning to process"
-      Accepted(status)
-    }
+  def create = Action(BodyParsers.parse.json) { request =>
+    val corpusResult = request.body.validate[models.Corpus]
+    corpusResult.fold(
+      errors => {
+        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toFlatJson(errors)))
+      },
+      corpus => {
+        DB.withSession { implicit s =>
+          val (id, isNew) = models.Corpora.findOrCreateByExternalID(corpus)
+          val reply = Json.obj("status" -> "OK", "id" -> id)
+          if (isNew) Created(reply) else Ok(reply)
+        }
+      })
   }
 
   def find(id: Long) = Action {
@@ -25,11 +37,33 @@ object Corpora extends Controller {
       val corpusOption = models.Corpora.find(id)
       corpusOption match {
         case Some(corpus) =>
-          val rendered = corpus.name
-          Ok(rendered)
+          val texts = corpus.texts
+          Ok(views.html.Corpora.corpus(corpus, texts))
         case None => NotFound
       }
     }
+  }
+
+  def addTextTo(id: Long) = Action(BodyParsers.parse.json) { request =>
+    val textResult = request.body.validate[models.Text]
+    textResult.fold(
+      errors => {
+        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toFlatJson(errors)))
+      },
+      text => {
+        DB.withSession { implicit s =>
+          val corpusOpt = models.Corpora.find(id)
+          corpusOpt match {
+            case Some(corpus) =>
+              val (oldTexts, newTexts) = models.Corpora.addTextsTo(id, Seq(text))
+              val reply = Json.obj("status" -> "OK", "id" -> id)
+              if (newTexts > 0) Created(reply) else Ok(reply)
+            case None =>
+              val message = Json.obj("id" -> id, "error" -> "Has not been created")
+              BadRequest(Json.obj("status" -> "KO", "message" -> message))
+          }
+        }
+      })
   }
 
   def delete(id: Long) = Action {

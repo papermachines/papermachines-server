@@ -15,7 +15,7 @@ case class Analysis(
   analysisType: String,
   params: TaskManager.Params,
   uri: URI,
-  finishedAt: DateTime)
+  finishedAt: DateTime) extends Item
 
 class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "ANALYSIS_ID") {
   def corpusID = column[Long]("CORP_ID")
