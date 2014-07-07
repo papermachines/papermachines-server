@@ -1,0 +1,10 @@
+@(text: models.Text)(implicit lang: Lang)
+
+@main(text.uri.toString) {
+<h2>@text.uri.toString</h2>
+	<ul>
+	@for(field <- text.metadata.fields) {
+		<li>@field</li>
+	}
+	</ul>
+}

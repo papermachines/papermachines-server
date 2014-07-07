@@ -3,7 +3,7 @@
 @main("Index of Corpora") {
 	<ul>
 	@for(corpus <- corpora) {
-		<li>@corpus.name</li>
+		<li><a href="@routes.Corpora.find(corpus.id.get)">@corpus.name</a></li>
 	}
 	</ul>
 }

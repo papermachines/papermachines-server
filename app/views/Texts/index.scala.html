@@ -1,0 +1,9 @@
+@(texts: Seq[models.Text])(implicit lang: Lang)
+
+@main("Index of Texts") {
+	<ul>
+	@for(text <- texts) {
+		<li><a href="@routes.Texts.find(text.id.get)">@text.uri</a></li>
+	}
+	</ul>
+}

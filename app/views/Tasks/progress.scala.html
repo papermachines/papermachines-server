@@ -1,0 +1,14 @@
+@(percent: Int)
+
+@defining(percent.toString + "%") { percentage =>
+	<div class="progress">
+	  <div class="progress-bar" 
+	  	   role="progressbar"
+	  	   aria-valuenow="@percent.toString"
+	  	   aria-valuemin="0"
+	  	   aria-valuemax="100"
+	  	   style="width: @percentage;">
+	    @percentage
+	  </div>
+	</div>
+}

@@ -1,15 +1,23 @@
 @(title: String)(content: Html)
 
 <!DOCTYPE html>
-
 <html>
     <head>
         <title>@title</title>
-        <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/main.css")">
+		<link rel="stylesheet" media="screen" href="@routes.WebJarAssets.at(WebJarAssets.locate("bootswatch-simplex", "bootstrap.min.css"))">
+ 
+		<!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+		<!--[if lt IE 9]>
+		  <script src="@routes.WebJarAssets.at(WebJarAssets.locate("html5shiv.js"))"></script>
+		  <script src="@routes.WebJarAssets.at(WebJarAssets.locate("respond.min.js"))"></script>
+		<![endif]--> 
+ 
         <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
-        <script src="@routes.Assets.at("javascripts/hello.js")" type="text/javascript"></script>
     </head>
     <body>
         @content
+
+		<script src="@routes.WebJarAssets.at(WebJarAssets.locate("jquery.min.js"))"></script>
+		<script src="@routes.WebJarAssets.at(WebJarAssets.locate("bootswatch-simplex", "bootstrap.min.js"))"></script>        
     </body>
 </html>

@@ -24,14 +24,32 @@ object TextJSON {
   val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
   implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
   
+  val iso8601Pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+  val dtReads = Reads.jodaDateReads(iso8601Pattern)
+  
+  val dtWrites = new Writes[org.joda.time.DateTime] {
+    def writes(d: org.joda.time.DateTime): JsValue = JsString(d.toString(iso8601Pattern))
+  }
+  
+  implicit val dtFmt = Format(dtReads, dtWrites)
+  
   implicit val cslPlusReads: Reads[Text] = (
     (__ \ "pm-id").readNullable[Long] and
-    (__ \ "file-uri").read[URI] and
+    (__ \ "file-url").read[URI] and
     (__.read[JsObject]) and
     (__ \ "last-modified").read[DateTime] and
     (__ \ "library-key").readNullable[String] and
     (__ \ "plaintext-uri").readNullable[URI]
   )(Text.apply _)
+  
+  implicit val textWrite: Writes[Text] = (
+    (__ \ "pm-id").writeNullable[Long] and
+    (__ \ "file-url").write[URI] and
+    (__.write[JsObject]) and
+    (__ \ "last-modified").write[DateTime] and
+    (__ \ "library-key").writeNullable[String] and
+    (__ \ "plaintext-uri").writeNullable[URI]
+   )(unlift(Text.unapply))
 }
 
 object FullText {
@@ -57,4 +75,15 @@ class Texts(tag: Tag) extends TableWithAutoIncId[Text](tag, "TEXTS", "TEXT_ID") 
 
 object Texts extends BasicCrud[Texts, Text] {
   val table = TableQuery[Texts]
+
+  def findOrCreateByExternalID(text: Text)(implicit s: Session) = {
+    val existing = table.where(_.externalID === text.externalID).list
+    existing.headOption match {
+      case Some(textFound) =>
+        (textFound.id.get, false)
+      case None =>
+        (create(text), true)
+    }
+  }
+
 }

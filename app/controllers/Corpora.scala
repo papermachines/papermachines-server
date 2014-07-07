@@ -10,14 +10,17 @@ import models.CorpusJSON._
 import models.TextJSON._
 
 object Corpora extends Controller {
-  def index = Action {
+  def index = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpora = models.Corpora.list
-      Ok(corpora.mkString("\n"))
+      render {
+        case Accepts.Html() => Ok(views.html.Corpora.index(corpora))
+        case Accepts.Json() => Ok(Json.toJson(corpora))
+      }
     }
   }
 
-  def create = Action(BodyParsers.parse.json) { request =>
+  def create = Action(parse.json) { request =>
     val corpusResult = request.body.validate[models.Corpus]
     corpusResult.fold(
       errors => {
@@ -44,7 +47,7 @@ object Corpora extends Controller {
     }
   }
 
-  def addTextTo(id: Long) = Action(BodyParsers.parse.json) { request =>
+  def addTextTo(id: Long) = Action(parse.json) { request =>
     val textResult = request.body.validate[models.Text]
     textResult.fold(
       errors => {
@@ -59,7 +62,7 @@ object Corpora extends Controller {
               val reply = Json.obj("status" -> "OK", "id" -> id)
               if (newTexts > 0) Created(reply) else Ok(reply)
             case None =>
-              val message = Json.obj("id" -> id, "error" -> "Has not been created")
+              val message = Json.obj("id" -> id, "error" -> "Corpus does not exist")
               BadRequest(Json.obj("status" -> "KO", "message" -> message))
           }
         }

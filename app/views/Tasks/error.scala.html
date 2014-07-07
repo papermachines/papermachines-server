@@ -1,0 +1,7 @@
+@(error: Throwable)
+
+@main(s"Failed to start") {
+	<h2>Could not start task</h2>	
+	<p>A task failed to start. More information may be available below.</p>
+	<p>Error: @error</p>
+}

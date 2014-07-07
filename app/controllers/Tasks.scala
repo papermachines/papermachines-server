@@ -35,7 +35,7 @@ object Tasks extends Controller {
       case TaskManager.Done(resultID) =>
         Redirect(routes.Analyses.find(resultID))
       case TaskCoordinator.Progress(name, amt) =>
-        Ok(amt.toString)
+        Ok(views.html.Tasks.progress((amt * 100.0).toInt))
       case TaskManager.TaskNotFound =>
         NotFound
     }
