@@ -7,6 +7,10 @@ import play.api.db.slick._
 import scala.slick.jdbc.meta.MTable
 import play.api.libs.json._
 
+import scala.util.{ Try, Success, Failure }
+import org.chrisjr.corpora._
+
+
 case class Corpus(id: Option[Long] = None, name: String, externalID: Option[String] = None) extends Item {
   def texts(implicit s: Session): Seq[Text] = {
     val links = TableQuery[CorporaTexts]
@@ -20,6 +24,15 @@ case class Corpus(id: Option[Long] = None, name: String, externalID: Option[Stri
 
 object Corpus {
   implicit val corpusFmt = Json.format[Corpus]  
+}
+
+object CorpusImplicits {
+  import TextImplicits._
+
+  implicit def corpusToTopicCorpus(corpus: Corpus)(implicit s: Session): org.chrisjr.corpora.Corpus = {
+    val texts = corpus.texts
+    org.chrisjr.corpora.Corpus(texts.map(textToTopicDocument))
+  }
 }
 
 class Corpora(tag: Tag) extends TableWithAutoIncId[Corpus](tag, "CORPORA", "CORP_ID") {

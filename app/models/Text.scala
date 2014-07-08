@@ -11,6 +11,9 @@ import scala.io._
 import java.io._
 import java.net.URI
 
+import scala.util.{ Try, Success, Failure }
+import org.chrisjr.corpora._
+
 case class Text(
   id: Option[Long] = None,
   uri: URI,
@@ -23,33 +26,40 @@ object Text {
   val uriReads: Reads[URI] = __.read[String].map(URI.create _)
   val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
   implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
-  
+
   val iso8601Pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
   val dtReads = Reads.jodaDateReads(iso8601Pattern)
-  
+
   val dtWrites = new Writes[org.joda.time.DateTime] {
     def writes(d: org.joda.time.DateTime): JsValue = JsString(d.toString(iso8601Pattern))
   }
-  
+
   implicit val dtFmt = Format(dtReads, dtWrites)
-  
+
   implicit val cslPlusReads: Reads[Text] = (
     (__ \ "pm-id").readNullable[Long] and
     (__ \ "file-url").read[URI] and
     (__.read[JsObject]) and
     (__ \ "last-modified").read[DateTime] and
     (__ \ "library-key").readNullable[String] and
-    (__ \ "plaintext-uri").readNullable[URI]
-  )(Text.apply _)
-  
+    (__ \ "plaintext-uri").readNullable[URI])(Text.apply _)
+
   implicit val textWrite: Writes[Text] = (
     (__ \ "pm-id").writeNullable[Long] and
     (__ \ "file-url").write[URI] and
     (__.write[JsObject]) and
     (__ \ "last-modified").write[DateTime] and
     (__ \ "library-key").writeNullable[String] and
-    (__ \ "plaintext-uri").writeNullable[URI]
-   )(unlift(Text.unapply))
+    (__ \ "plaintext-uri").writeNullable[URI])(unlift(Text.unapply))
+}
+
+object TextImplicits {
+  implicit def textToTopicDocument(text: Text): Document = {
+    val fileTry = Try(text.plaintextUri
+      .map(new File(_))
+      .getOrElse(throw new IllegalStateException(s"No text extracted for ${text.uri}")))
+    fileTry.flatMap(Document.fromTextFile(_, "UTF-8", text.metadata)).get
+  }
 }
 
 object FullText {
@@ -84,6 +94,11 @@ object Texts extends BasicCrud[Texts, Text] {
       case None =>
         (create(text), true)
     }
+  }
+
+  def update(text: Text, plaintextUri: URI)(implicit s: Session) = {
+    val old = for (t <- table.where(_.id === text.id)) yield t.plaintextUri
+    old.update(plaintextUri)
   }
 
 }
