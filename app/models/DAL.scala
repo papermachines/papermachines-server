@@ -52,7 +52,7 @@ trait BasicCrud[T <: TableWithAutoIncId[R], R <: Item] {
     table.where(pred).list
 
   def count(implicit s: Session): Int = Query(table.length).first
-
+  
   def delete(id: Long)(implicit s: Session): Boolean = {
     val rowsDeleted = table.where(_.id === id).delete
     rowsDeleted == 0

@@ -68,7 +68,7 @@ object Corpora extends BasicCrud[Corpora, Corpus] {
     (oldIds.size, newIds.size)
   }
   
-  def findOrCreateByExternalID(corpus: Corpus)(implicit s: Session) = {
+  def insertIfNotExistsByExternalID(corpus: Corpus)(implicit s: Session) = {
     val existing = table.where(_.externalID === corpus.externalID).list
     existing.headOption match {
       case Some(corpusFound) =>

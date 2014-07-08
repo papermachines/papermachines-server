@@ -28,7 +28,7 @@ object Corpora extends Controller {
       },
       corpus => {
         DB.withSession { implicit s =>
-          val (id, isNew) = models.Corpora.findOrCreateByExternalID(corpus)
+          val (id, isNew) = models.Corpora.insertIfNotExistsByExternalID(corpus)
           val reply = Json.obj("status" -> "OK", "id" -> id)
           if (isNew) Created(reply) else Ok(reply)
         }

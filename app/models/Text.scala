@@ -76,7 +76,7 @@ class Texts(tag: Tag) extends TableWithAutoIncId[Text](tag, "TEXTS", "TEXT_ID") 
 object Texts extends BasicCrud[Texts, Text] {
   val table = TableQuery[Texts]
 
-  def findOrCreateByExternalID(text: Text)(implicit s: Session) = {
+  def insertIfNotExistsByExternalID(text: Text)(implicit s: Session) = {
     val existing = table.where(_.externalID === text.externalID).list
     existing.headOption match {
       case Some(textFound) =>

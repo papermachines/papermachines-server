@@ -4,7 +4,7 @@
 <h2>@corpus.name</h2>
 	<ul>
 	@for(text <- texts) {
-		<li>@text.uri</li>
+		<li><a href="@routes.Texts.find(text.id.get)">@text.uri</a></li>
 	}
 	</ul>
 }

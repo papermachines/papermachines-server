@@ -27,12 +27,13 @@ object Texts extends Controller {
       },
       text => {
         DB.withSession { implicit s =>
-          val (id, isNew) = models.Texts.findOrCreateByExternalID(text)
+          val (id, isNew) = models.Texts.insertIfNotExistsByExternalID(text)
           val reply = Json.obj("status" -> "OK", "id" -> id)
           if (isNew) Created(reply) else Ok(reply)
         }
       })
   }
+
   def find(id: Long) = Action {
     DB.withSession { implicit s =>
       val textOption = models.Texts.find(id)
