@@ -11,6 +11,7 @@ GET		/corpora/:id				controllers.Corpora.find(id: Long)
 #PUT		/corpora/:id				controllers.Corpora.replace(id: Long)
 DELETE	/corpora/:id				controllers.Corpora.delete(id: Long)
 GET		/corpora/:id/texts			controllers.Corpora.getTexts(id: Long)
+GET		/corpora/:id/export			controllers.Corpora.export(id: Long)
 
 POST	/corpora/:id/texts			controllers.Corpora.addTextTo(id: Long)
 

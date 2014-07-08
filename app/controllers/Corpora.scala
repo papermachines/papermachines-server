@@ -10,6 +10,8 @@ import models.Corpus._
 import models.Text._
 
 object Corpora extends Controller {
+  import models.CorpusImplicits._
+  
   def index = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpora = models.Corpora.list
@@ -47,6 +49,20 @@ object Corpora extends Controller {
     }
   }
 
+  def export(id: Long) = Action {
+    DB.withSession { implicit s =>
+      val corpusOption = models.Corpora.find(id)
+      corpusOption match {
+        case Some(corpus) =>
+          val tmp = java.io.File.createTempFile("corpus", "dat")
+          val topicCorpus = corpusToTopicCorpus(corpus)
+          org.chrisjr.corpora.Util.pickle(tmp, topicCorpus)
+          Ok.sendFile(tmp)
+        case None => NotFound
+      }
+    }
+  }
+
   def getTexts(id: Long) = Action {
     DB.withSession { implicit s =>
       val corpusOption = models.Corpora.find(id)
@@ -58,7 +74,7 @@ object Corpora extends Controller {
       }
     }
   }
-  
+
   def addTextTo(id: Long) = Action(parse.json) { request =>
     val textResult = request.body.validate[models.Text]
     textResult.fold(
