@@ -1,0 +1,9 @@
+@(corpus: models.Corpus, texts: Seq[models.Text])(implicit lang: Lang)
+
+@main(corpus.name) {
+	<ul>
+	@for(text <- texts) {
+		<li><a href="@routes.Texts.find(text.id.get)">@text.uri</a></li>
+	}
+	</ul>
+}

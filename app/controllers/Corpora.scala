@@ -47,6 +47,18 @@ object Corpora extends Controller {
     }
   }
 
+  def getTexts(id: Long) = Action {
+    DB.withSession { implicit s =>
+      val corpusOption = models.Corpora.find(id)
+      corpusOption match {
+        case Some(corpus) =>
+          val texts = corpus.texts
+          Ok(views.html.Corpora.corpustexts(corpus, texts))
+        case None => NotFound
+      }
+    }
+  }
+  
   def addTextTo(id: Long) = Action(parse.json) { request =>
     val textResult = request.body.validate[models.Text]
     textResult.fold(

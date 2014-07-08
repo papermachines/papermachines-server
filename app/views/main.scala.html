@@ -1,4 +1,4 @@
-@(title: String)(content: Html)
+@(title: String, lead: Option[String] = None)(content: Html)
 
 <!DOCTYPE html>
 <html>
@@ -15,8 +15,21 @@
         <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
     </head>
     <body>
-        @content
+	    <div class="container-fluid">
+	      <div class="page-header">
+	        <h1>@title</h1>
+	        @for(para <- lead) {
+		        <p class="lead">@para</p>
+	        }
+	      </div>
 
+		  <div class="row">
+		   <div class="col-xs-12">
+		    @content
+		    </div>
+		  </div>
+		</div>
+	
 		<script src="@routes.WebJarAssets.at(WebJarAssets.locate("jquery.min.js"))"></script>
 		<script src="@routes.WebJarAssets.at(WebJarAssets.locate("bootswatch-simplex", "bootstrap.min.js"))"></script>        
     </body>
