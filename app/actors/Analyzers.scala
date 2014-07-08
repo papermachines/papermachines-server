@@ -13,7 +13,6 @@ import play.api.libs.json._
 import java.net.URI
 import java.io._
 import org.joda.time.DateTime
-import org.apache.tika.Tika
 
 abstract class Analyzer[T, R] {
   type Params = TaskManager.Params
@@ -25,6 +24,8 @@ abstract class Analyzer[T, R] {
   val maxWorkers: Int = 1
   def makeF(params: Params): F
   val coordinatorClass: Class[_]
+
+  def onDone(results: Seq[Try[R]]) = {}
 
   class Coordinator(
     replyTo: ActorRef,
@@ -73,7 +74,10 @@ abstract class Analyzer[T, R] {
           case Failure(e) =>
             log.error(e.getMessage)
         }
-        if (done == total) replyTo ! TaskCoordinator.Results(self.path.name, results)
+        if (done == total) {
+          onDone(results)
+          replyTo ! TaskCoordinator.Results(self.path.name, results)
+        }
       case TaskCoordinator.GetProgress =>
         if (total == -1) replyTo ! TaskCoordinator.NoWorkReceived
         else replyTo ! TaskCoordinator.Progress(self.path.toString, getProgress)
@@ -125,6 +129,9 @@ object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
 }
 
 object ExtractAnalyzer extends Analyzer[Text, Text] {
+  import org.apache.tika.Tika
+  import models.JsonImplicits._
+
   val name = "extract"
   val tika = new Tika
 
@@ -137,7 +144,7 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
   }
 
   def makeF(p: Params) = {
-    val outputDir = new File(new URI((p \ "output-dir").as[String]))
+    val outputDir = new File((p \ "output-dir").as[URI])
     if (!outputDir.canWrite)
       throw new IllegalArgumentException(s"Cannot write to $outputDir!")
 
@@ -150,9 +157,25 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
       copy(reader, writer)
 
       val newURI = outputFile.toURI
-      x.copy(plaintextUri = Some(newURI), lastModified = DateTime.now)
+      x.copy(plaintextUri = Some(newURI))
     }
   }
+
+  override def onDone(results: Seq[Try[Text]]) = {
+    import play.api.db.slick._
+    import play.api.Play.current
+
+    DB.withSession { implicit s =>
+      for (
+        textTry <- results;
+        text <- textTry
+        if text.id.nonEmpty
+      ) {
+        models.Texts.update(text, text.plaintextUri.get)
+      }
+    }
+  }
+
   class WorkerImpl(f: F) extends Worker(f: F)
   class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
   val coordinatorClass = classOf[CoordinatorImpl]
@@ -168,7 +191,7 @@ object HDPAnalyzer extends Analyzer[org.chrisjr.corpora.Corpus, org.chrisjr.corp
 
   val name = "hdp"
   def makeF(p: Params) = {
-//    val transformers = (p \\ "preprocess")
+    //    val transformers = (p \\ "preprocess")
     val transformers = Seq(new MinLengthRemover(3))
 
     { corpus: org.chrisjr.corpora.Corpus =>

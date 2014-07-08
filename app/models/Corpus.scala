@@ -74,11 +74,15 @@ object Corpora extends BasicCrud[Corpora, Corpus] {
   }
 
   def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): (Int, Int) = {
-    val (textsToAdd, textsAdded) = textsIn.partition(_.id.isEmpty)
-    val oldIds = textsAdded.map(_.id.get)
-    val newIds = (texts returning texts.map(_.id)) ++= textsToAdd
-    corporaTexts ++= Stream.continually(corpusID) zip (oldIds ++ newIds)
-    (oldIds.size, newIds.size)
+    val textIds = for {
+      text <- textsIn
+      (id, isNew) = Texts.insertIfNotExistsByExternalID(text)      
+    } yield (id, isNew)
+
+    corporaTexts ++= Stream.continually(corpusID) zip (textIds.unzip._1)
+    
+    val (newIds, oldIds) = textIds.partition(_._2)
+    (newIds.size, oldIds.size)
   }
   
   def insertIfNotExistsByExternalID(corpus: Corpus)(implicit s: Session) = {

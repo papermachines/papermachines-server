@@ -5,12 +5,14 @@ import scala.slick.lifted.ForeignKeyQuery
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import play.api.data.validation.ValidationError
 import scala.slick.jdbc.meta.MTable
 import org.joda.time.DateTime
 import java.sql.Timestamp
 import scala.slick.lifted.CanBeQueryCondition
 import java.net.URI
+
+import scala.util.{ Try, Success, Failure }
 
 abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) extends Table[T](tag, name) {
   def id = column[Long](idName, O.PrimaryKey, O.AutoInc)
@@ -28,9 +30,17 @@ abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) ext
 }
 
 object JsonImplicits {
-  val uriReads: Reads[URI] = __.read[String].map(URI.create _)
-  val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
-  implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
+  implicit object URIReads extends Reads[URI] {
+    def reads(json: JsValue) = json match {
+      case JsString(x) => Try(new URI(x)).map(JsSuccess(_))
+        .getOrElse(JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.validuri")))))
+      case _ => JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.uri"))))
+    }
+  }
+
+  implicit object URIWrites extends Writes[URI] {
+    def writes(uri: URI) = JsString(uri.toString)
+  }
 
   val iso8601Pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
   val dtReads = Reads.jodaDateReads(iso8601Pattern)
@@ -68,7 +78,7 @@ trait BasicCrud[T <: TableWithAutoIncId[R], R <: Item] {
     table.where(pred).list
 
   def count(implicit s: Session): Int = Query(table.length).first
-  
+
   def delete(id: Long)(implicit s: Session): Boolean = {
     val rowsDeleted = table.where(_.id === id).delete
     rowsDeleted == 0

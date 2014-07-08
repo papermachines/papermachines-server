@@ -37,19 +37,19 @@ object Corpora extends Controller {
       })
   }
 
-  def find(id: Long) = Action {
+  def find(id: Long) = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpusOption = models.Corpora.find(id)
       corpusOption match {
         case Some(corpus) =>
           val texts = corpus.texts
           Ok(views.html.Corpora.corpus(corpus, texts))
-        case None => NotFound
+        case None => NotFound(views.html.defaultpages.notFound(request, None))
       }
     }
   }
 
-  def export(id: Long) = Action {
+  def export(id: Long) = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpusOption = models.Corpora.find(id)
       corpusOption match {
@@ -58,19 +58,19 @@ object Corpora extends Controller {
           val topicCorpus = corpusToTopicCorpus(corpus)
           org.chrisjr.corpora.Util.pickle(tmp, topicCorpus)
           Ok.sendFile(tmp)
-        case None => NotFound
+        case None => NotFound(views.html.defaultpages.notFound(request, None))
       }
     }
   }
 
-  def getTexts(id: Long) = Action {
+  def getTexts(id: Long) = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpusOption = models.Corpora.find(id)
       corpusOption match {
         case Some(corpus) =>
           val texts = corpus.texts
           Ok(views.html.Corpora.corpustexts(corpus, texts))
-        case None => NotFound
+        case None => NotFound(views.html.defaultpages.notFound(request, None))
       }
     }
   }
@@ -86,7 +86,7 @@ object Corpora extends Controller {
           val corpusOpt = models.Corpora.find(id)
           corpusOpt match {
             case Some(corpus) =>
-              val (oldTexts, newTexts) = models.Corpora.addTextsTo(id, Seq(text))
+              val (newTexts, oldTexts) = models.Corpora.addTextsTo(id, Seq(text))
               val reply = Json.obj("status" -> "OK", "id" -> id)
               if (newTexts > 0) Created(reply) else Ok(reply)
             case None =>

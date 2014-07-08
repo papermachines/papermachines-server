@@ -10,6 +10,7 @@ import play.api.Play.current
 import play.api.db.slick._
 import play.api.db.slick.Config.driver.simple._
 import play.api.mvc._
+import play.api.libs.json._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{ Try, Success, Failure }
@@ -41,8 +42,8 @@ object Tasks extends Controller {
     }
   }
 
-  def startTask[T](analyzer: Analyzer[T, _], work: Seq[T]): Try[String] = {
-    taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work))
+  def startTask[T](analyzer: Analyzer[T, _], work: Seq[T], params: TaskManager.Params = Json.obj()): Try[String] = {
+    taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work), params)
     i.receive(timeout) match {
       case TaskManager.Started(name) =>
         Success(name)

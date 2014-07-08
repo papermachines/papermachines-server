@@ -15,7 +15,7 @@ object TaskManager {
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 
-  case class StartTask[T](analyzer: Analyzer[T, _], batch: TaskCoordinator.WorkBatch[T], params: Params = JsObject(Seq()))
+  case class StartTask[T](analyzer: Analyzer[T, _], batch: TaskCoordinator.WorkBatch[T], params: Params = Json.obj())
   case object CouldNotStart
   case class Started(name: String)
   case class GetProgressFor(name: String)

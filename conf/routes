@@ -15,6 +15,9 @@ GET		/corpora/:id/export			controllers.Corpora.export(id: Long)
 
 POST	/corpora/:id/texts			controllers.Corpora.addTextTo(id: Long)
 
+GET		/corpora/:id/extract		controllers.Analyses.extract(id: Long)
+
+
 GET		/texts						controllers.Texts.index
 POST	/texts						controllers.Texts.create
 GET		/texts/:id					controllers.Texts.find(id: Long)
