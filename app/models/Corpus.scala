@@ -18,15 +18,15 @@ case class Corpus(id: Option[Long] = None, name: String, externalID: Option[Stri
   }
 }
 
-object CorpusJSON {
-  implicit val corpusFmt = Json.format[Corpus]
+object Corpus {
+  implicit val corpusFmt = Json.format[Corpus]  
 }
 
 class Corpora(tag: Tag) extends TableWithAutoIncId[Corpus](tag, "CORPORA", "CORP_ID") {
   def name = column[String]("CORP_NAME")
   def externalID = column[String]("CORP_EXTID", O.Nullable)
 
-  def * = (id.?, name, externalID.?) <> (Corpus.tupled, Corpus.unapply)
+  def * = (id.?, name, externalID.?) <> ((Corpus.apply _).tupled, Corpus.unapply)
 }
 
 class CorporaTexts(tag: Tag) extends Table[(Long, Long)](tag, "CORPORA_TEXTS") {

@@ -19,7 +19,7 @@ case class Text(
   externalID: Option[String] = None,
   plaintextUri: Option[URI] = None) extends Item
 
-object TextJSON {
+object Text {
   val uriReads: Reads[URI] = __.read[String].map(URI.create _)
   val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
   implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
@@ -70,7 +70,7 @@ class Texts(tag: Tag) extends TableWithAutoIncId[Text](tag, "TEXTS", "TEXT_ID") 
   def externalID = column[String]("TEXT_EXTID", O.Nullable)
   def plaintextUri = column[URI]("TEXT_PLAINURI", O.Nullable)
 
-  def * = (id.?, uri, metadata, lastModified, externalID.?, plaintextUri.?) <> (Text.tupled, Text.unapply _)
+  def * = (id.?, uri, metadata, lastModified, externalID.?, plaintextUri.?) <> ((Text.apply _).tupled, Text.unapply _)
 }
 
 object Texts extends BasicCrud[Texts, Text] {

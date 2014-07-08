@@ -6,7 +6,7 @@ import play.api.db.slick._
 import play.api.Play.current
 import play.api.libs.json._
 
-import models.TextJSON._
+import models.Text._
 
 object Texts extends Controller {
   def index = Action { implicit request =>

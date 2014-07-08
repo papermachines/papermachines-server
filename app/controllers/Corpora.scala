@@ -6,8 +6,8 @@ import play.api.db.slick._
 import play.api.Play.current
 
 import play.api.libs.json._
-import models.CorpusJSON._
-import models.TextJSON._
+import models.Corpus._
+import models.Text._
 
 object Corpora extends Controller {
   def index = Action { implicit request =>

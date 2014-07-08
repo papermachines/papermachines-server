@@ -1,6 +1,7 @@
 package models
 
 import org.scalatest._
+import org.scalatest.Matchers._
 import org.scalatestplus.play._
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
@@ -36,7 +37,7 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
   } yield Text(uri = new java.net.URI(uri)))
 
   "A Corpus" should {
-    import CorpusJSON._
+    import Corpus._
 
     "be able to add new texts" in db { implicit s =>
       val newCorpusID = Corpora.fromTexts("test", fakeTexts)
@@ -48,14 +49,13 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
     "be serializable to JSON" in {
       val corpus = Corpus(name = "Testing")
       val json = Json.toJson(corpus)
-      println(json)
+      json.toString.length should be > 0
     }
 
     "be deserializable from JSON" in {
       val input = """{"name":"Testing","externalID":"-1"}"""
       val corpusOpt = Json.parse(input).asOpt[Corpus]
       assert(corpusOpt.nonEmpty)
-      println(corpusOpt.get)
     }
   }
 }
