@@ -5,6 +5,7 @@ import scala.slick.lifted.ForeignKeyQuery
 import scala.slick.lifted.TableQuery
 import play.api.db.slick._
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 import scala.slick.jdbc.meta.MTable
 import org.joda.time.DateTime
 import java.sql.Timestamp
@@ -24,6 +25,21 @@ abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) ext
     { p => Json.stringify(p) },
     { s => Json.parse(s).as[JsObject] })
 
+}
+
+object JsonImplicits {
+  val uriReads: Reads[URI] = __.read[String].map(URI.create _)
+  val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
+  implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
+
+  val iso8601Pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+  val dtReads = Reads.jodaDateReads(iso8601Pattern)
+
+  val dtWrites = new Writes[org.joda.time.DateTime] {
+    def writes(d: org.joda.time.DateTime): JsValue = JsString(d.toString(iso8601Pattern))
+  }
+
+  implicit val dtFmt = Format(dtReads, dtWrites)
 }
 
 trait Item {

@@ -23,7 +23,7 @@ abstract class Analyzer[T, R] {
 
   val name: String
   val maxWorkers: Int = 1
-  def makeF(params: Params): T => R
+  def makeF(params: Params): F
   val coordinatorClass: Class[_]
 
   class Coordinator(
@@ -43,6 +43,10 @@ abstract class Analyzer[T, R] {
         ActorRefRoutee(r)
       }
       Router(RoundRobinRoutingLogic(), routees)
+    }
+
+    def getProgress = {
+      done.toDouble / total
     }
 
     def receive = {
@@ -72,7 +76,7 @@ abstract class Analyzer[T, R] {
         if (done == total) replyTo ! TaskCoordinator.Results(self.path.name, results)
       case TaskCoordinator.GetProgress =>
         if (total == -1) replyTo ! TaskCoordinator.NoWorkReceived
-        else replyTo ! TaskCoordinator.Progress(self.path.toString, done.toDouble / total)
+        else replyTo ! TaskCoordinator.Progress(self.path.toString, getProgress)
       case TaskCoordinator.Cancel =>
         // TODO what other resources need to be freed, if any?
         context.stop(self)
@@ -154,8 +158,32 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
   val coordinatorClass = classOf[CoordinatorImpl]
 }
 
+trait TopicModelAnalyzer {
+
+}
+
+object HDPAnalyzer extends Analyzer[org.chrisjr.corpora.Corpus, org.chrisjr.corpora.Corpus] {
+  import models.CorpusImplicits._
+  import org.chrisjr.corpora._
+
+  val name = "hdp"
+  def makeF(p: Params) = {
+//    val transformers = (p \\ "preprocess")
+    val transformers = Seq(new MinLengthRemover(3))
+
+    { corpus: org.chrisjr.corpora.Corpus =>
+      val transformed = corpus.transform(transformers)
+      transformed
+    }
+  }
+
+  class WorkerImpl(f: F) extends Worker(f: F)
+  class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
+  val coordinatorClass = classOf[CoordinatorImpl]
+}
+
 object Analyzers {
-  val analyzers = Seq(TimesTwoAnalyzer, WordCountAnalyzer)
-  val analyzerMap = analyzers.map { x => x.name -> x }.toMap
+  val analyzers: Seq[Analyzer[_, _]] = Seq(TimesTwoAnalyzer, WordCountAnalyzer, HDPAnalyzer)
+  val analyzerMap: Map[String, Analyzer[_, _]] = analyzers.map { x => x.name -> x }.toMap
   def apply(name: String) = analyzerMap.apply(name)
 }

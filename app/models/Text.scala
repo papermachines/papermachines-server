@@ -23,18 +23,7 @@ case class Text(
   plaintextUri: Option[URI] = None) extends Item
 
 object Text {
-  val uriReads: Reads[URI] = __.read[String].map(URI.create _)
-  val uriWrites: Writes[URI] = (__.write[String]).contramap({ x: URI => x.toString })
-  implicit val uriFormat: Format[URI] = Format(uriReads, uriWrites)
-
-  val iso8601Pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-  val dtReads = Reads.jodaDateReads(iso8601Pattern)
-
-  val dtWrites = new Writes[org.joda.time.DateTime] {
-    def writes(d: org.joda.time.DateTime): JsValue = JsString(d.toString(iso8601Pattern))
-  }
-
-  implicit val dtFmt = Format(dtReads, dtWrites)
+  import JsonImplicits._
 
   implicit val cslPlusReads: Reads[Text] = (
     (__ \ "pm-id").readNullable[Long] and

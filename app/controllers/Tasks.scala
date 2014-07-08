@@ -41,7 +41,7 @@ object Tasks extends Controller {
     }
   }
 
-  def startTask[T, R](analyzer: Analyzer[T, R], work: Seq[T]) = {
+  def startTask[T](analyzer: Analyzer[T, _], work: Seq[T]): Try[String] = {
     taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work))
     i.receive(timeout) match {
       case TaskManager.Started(name) =>

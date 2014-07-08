@@ -17,6 +17,11 @@ case class Analysis(
   uri: URI,
   finishedAt: DateTime) extends Item
 
+object Analysis {
+  import JsonImplicits._
+  implicit val analysisFmt = Json.format[Analysis]
+}
+
 class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "ANALYSIS_ID") {
   def corpusID = column[Long]("CORP_ID")
   def analysisType = column[String]("ANALYSIS_TYPE")
@@ -24,7 +29,7 @@ class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "
   def uri = column[URI]("ANALYSIS_URI")
   def finishedAt = column[DateTime]("ANALYSIS_TIMESTAMP")
 
-  def * = (id.?, corpusID, analysisType, params, uri, finishedAt) <> (Analysis.tupled, Analysis.unapply _)
+  def * = (id.?, corpusID, analysisType, params, uri, finishedAt) <> ((Analysis.apply _).tupled, Analysis.unapply _)
 
   def corpus = foreignKey("ANALYSES_CORP_FK", corpusID, TableQuery[Corpora])(_.id)
 }
