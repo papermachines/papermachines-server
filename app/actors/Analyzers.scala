@@ -215,7 +215,6 @@ object HDPAnalyzer extends Analyzer[models.Corpus, org.chrisjr.corpora.Corpus] w
 }
 
 object Analyzers {
-  import scala.reflect.macros.Universe
   import ops.hlist.ToList
   import ops.record.{ Keys, Values }
 
@@ -224,7 +223,7 @@ object Analyzers {
     values: Values.Aux[B, V],
     ktl: ToList[K, Any],
     vtl: ToList[V, Any]) = {
-    (analyzers.keys.toList zip analyzers.values.toList) collect { case (field, value) if field == name => value }
+    ((analyzers.keys.toList zip analyzers.values.toList) collect { case (field, value) if field == name => value }).headOption
   }
 
 }

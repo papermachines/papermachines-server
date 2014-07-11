@@ -58,7 +58,7 @@ object Analyses extends Controller {
       },
       analysis => {
         Analyzers.byName(analysis.analysisType) match {
-          case List(analyzer) =>
+          case Some(analyzer) =>
             DB.withSession { implicit session =>
               val corpusOpt = models.Corpora.find(analysis.corpusID)
               corpusOpt match {
@@ -76,7 +76,7 @@ object Analyses extends Controller {
                   BadRequest(Json.obj("status" -> "KO", "message" -> s"Corpus ${analysis.corpusID} not found!"))
               }
             }
-          case Nil =>
+          case None =>
             BadRequest(Json.obj("status" -> "KO", "message" -> s"No analyzer of type ${analysis.analysisType}!"))
         }
       })
