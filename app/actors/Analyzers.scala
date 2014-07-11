@@ -14,6 +14,13 @@ import java.net.URI
 import java.io._
 import org.joda.time.DateTime
 
+import play.api.db.slick.Config.driver.simple._
+import play.api.db.slick._
+
+import shapeless._
+import syntax.singleton._
+import record._
+
 abstract class Analyzer[T, R] {
   type Params = TaskManager.Params
   type F = T => R
@@ -168,8 +175,7 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
     DB.withSession { implicit s =>
       for (
         textTry <- results;
-        text <- textTry
-        if text.id.nonEmpty
+        text <- textTry if text.id.nonEmpty
       ) {
         models.Texts.update(text, text.plaintextUri.get)
       }
@@ -182,10 +188,9 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
 }
 
 trait TopicModelAnalyzer {
-
 }
 
-object HDPAnalyzer extends Analyzer[org.chrisjr.corpora.Corpus, org.chrisjr.corpora.Corpus] {
+object HDPAnalyzer extends Analyzer[models.Corpus, org.chrisjr.corpora.Corpus] with TopicModelAnalyzer {
   import models.CorpusImplicits._
   import org.chrisjr.corpora._
 
@@ -194,9 +199,13 @@ object HDPAnalyzer extends Analyzer[org.chrisjr.corpora.Corpus, org.chrisjr.corp
     //    val transformers = (p \\ "preprocess")
     val transformers = Seq(new MinLengthRemover(3))
 
-    { corpus: org.chrisjr.corpora.Corpus =>
-      val transformed = corpus.transform(transformers)
-      transformed
+    { corpus =>
+      import play.api.Play.current
+
+      DB.withSession { implicit s =>
+        val transformed = corpus.transform(transformers)
+        transformed
+      }
     }
   }
 
@@ -206,7 +215,16 @@ object HDPAnalyzer extends Analyzer[org.chrisjr.corpora.Corpus, org.chrisjr.corp
 }
 
 object Analyzers {
-  val analyzers: Seq[Analyzer[_, _]] = Seq(TimesTwoAnalyzer, WordCountAnalyzer, HDPAnalyzer)
-  val analyzerMap: Map[String, Analyzer[_, _]] = analyzers.map { x => x.name -> x }.toMap
-  def apply(name: String) = analyzerMap.apply(name)
+  import scala.reflect.macros.Universe
+  import ops.hlist.ToList
+  import ops.record.{ Keys, Values }
+
+  val analyzers = ("hdp" ->> HDPAnalyzer) :: HNil
+  def byName[B <: HList, K <: HList, V <: HList](name: String)(implicit keys: Keys.Aux[B, K],
+    values: Values.Aux[B, V],
+    ktl: ToList[K, Any],
+    vtl: ToList[V, Any]) = {
+    (analyzers.keys.toList zip analyzers.values.toList) collect { case (field, value) if field == name => value }
+  }
+
 }

@@ -11,6 +11,9 @@ import actors.Analyzers
 import scala.util.{ Try, Success, Failure }
 import play.core.Router
 
+import shapeless._
+import record._
+
 object Analyses extends Controller {
   import Analysis._
   import models.JsonImplicits._
@@ -54,24 +57,27 @@ object Analyses extends Controller {
         BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toFlatJson(errors)))
       },
       analysis => {
-        val analyzer = actors.HDPAnalyzer
-        DB.withSession { implicit session =>
-          val corpusOpt = models.Corpora.find(analysis.corpusID)
-          corpusOpt match {
-            case Some(corpus) =>
-              val work = Seq(corpus).map(corpusToTopicCorpus)
-              controllers.Tasks.startTask(analyzer, work) match {
-                case Success(name) =>
-                  val resultURL = routes.Tasks.find(name)
-                  Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
-                case Failure(e) =>
-                  val exc = UnexpectedException(Some("Analysis failed"), Some(e))
-                  InternalServerError(views.html.defaultpages.error(exc))
+        Analyzers.byName(analysis.analysisType) match {
+          case List(analyzer) =>
+            DB.withSession { implicit session =>
+              val corpusOpt = models.Corpora.find(analysis.corpusID)
+              corpusOpt match {
+                case Some(corpus) =>
+                  val work = Seq(corpus)
+                  controllers.Tasks.startTask(analyzer, work) match {
+                    case Success(name) =>
+                      val resultURL = routes.Tasks.find(name)
+                      Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
+                    case Failure(e) =>
+                      val exc = UnexpectedException(Some("Analysis failed"), Some(e))
+                      InternalServerError(views.html.defaultpages.error(exc))
+                  }
+                case None =>
+                  BadRequest(Json.obj("status" -> "KO", "message" -> s"Corpus ${analysis.corpusID} not found!"))
               }
-            case None =>
-              BadRequest(Json.obj("status" -> "KO", "message" -> s"Corpus ${analysis.corpusID} not found!"))
-          }
-
+            }
+          case Nil =>
+            BadRequest(Json.obj("status" -> "KO", "message" -> s"No analyzer of type ${analysis.analysisType}!"))
         }
       })
   }

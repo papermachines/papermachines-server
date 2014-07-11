@@ -42,7 +42,7 @@ object Tasks extends Controller {
     }
   }
 
-  def startTask[T](analyzer: Analyzer[T, _], work: Seq[T], params: TaskManager.Params = Json.obj()): Try[String] = {
+  def startTask[T, R](analyzer: Analyzer[T, R], work: Seq[T], params: TaskManager.Params = Json.obj()): Try[String] = {
     taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work), params)
     i.receive(timeout) match {
       case TaskManager.Started(name) =>
