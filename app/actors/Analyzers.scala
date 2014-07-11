@@ -218,12 +218,13 @@ object Analyzers {
   import ops.hlist.ToList
   import ops.record.{ Keys, Values }
 
-  val analyzers = ("hdp" ->> HDPAnalyzer) :: HNil
+  val corpusAnalyzers = ("hdp" ->> HDPAnalyzer) :: HNil
+
   def byName[B <: HList, K <: HList, V <: HList](name: String)(implicit keys: Keys.Aux[B, K],
     values: Values.Aux[B, V],
     ktl: ToList[K, Any],
     vtl: ToList[V, Any]) = {
-    ((analyzers.keys.toList zip analyzers.values.toList) collect { case (field, value) if field == name => value }).headOption
+    ((corpusAnalyzers.keys.toList zip corpusAnalyzers.values.toList) collect { case (field, value) if field == name => value }).headOption
   }
 
 }
