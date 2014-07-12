@@ -56,7 +56,7 @@ object Corpora extends Controller {
         case Some(corpus) =>
           val tmp = java.io.File.createTempFile("corpus", "dat")
           val topicCorpus = corpusToTopicCorpus(corpus)
-          org.chrisjr.corpora.Util.pickle(tmp, topicCorpus)
+          org.chrisjr.topic_annotator.corpora.Util.pickle(tmp, topicCorpus)
           Ok.sendFile(tmp)
         case None => NotFound(views.html.defaultpages.notFound(request, None))
       }

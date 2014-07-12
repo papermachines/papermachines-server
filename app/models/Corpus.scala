@@ -8,7 +8,7 @@ import scala.slick.jdbc.meta.MTable
 import play.api.libs.json._
 
 import scala.util.{ Try, Success, Failure }
-import org.chrisjr.corpora._
+import org.chrisjr.topic_annotator.corpora._
 
 
 case class Corpus(id: Option[Long] = None, name: String, externalID: Option[String] = None) extends Item {
@@ -29,9 +29,9 @@ object Corpus {
 object CorpusImplicits {
   import TextImplicits._
 
-  implicit def corpusToTopicCorpus(corpus: Corpus)(implicit s: Session): org.chrisjr.corpora.Corpus = {
+  implicit def corpusToTopicCorpus(corpus: Corpus)(implicit s: Session): org.chrisjr.topic_annotator.corpora.Corpus = {
     val texts = corpus.texts
-    org.chrisjr.corpora.Corpus(texts.map(textToTopicDocument))
+    org.chrisjr.topic_annotator.corpora.Corpus(texts.map(textToTopicDocument))
   }
 }
 

@@ -12,7 +12,7 @@ import java.io._
 import java.net.URI
 
 import scala.util.{ Try, Success, Failure }
-import org.chrisjr.corpora._
+import org.chrisjr.topic_annotator.corpora._
 
 case class Text(
   id: Option[Long] = None,

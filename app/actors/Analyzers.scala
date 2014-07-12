@@ -4,9 +4,6 @@ import akka.actor._
 import akka.routing._
 import akka.event.Logging
 import scala.util.{ Try, Success, Failure }
-import scala.reflect.ClassTag
-import models.Text
-import models.FullText
 import play.api.data._
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -16,6 +13,10 @@ import org.joda.time.DateTime
 
 import play.api.db.slick.Config.driver.simple._
 import play.api.db.slick._
+
+import models.Text
+import models.FullText
+import org.chrisjr.topic_annotator.corpora._
 
 import shapeless._
 import syntax.singleton._
@@ -27,7 +28,6 @@ abstract class Analyzer[T, R] {
 
   val form: Option[Form[Params]] = None
 
-  val name: String
   val maxWorkers: Int = 1
   def makeF(params: Params): F
   val coordinatorClass: Class[_]
@@ -112,7 +112,6 @@ abstract class Analyzer[T, R] {
 }
 
 object TimesTwoAnalyzer extends Analyzer[Int, Int] {
-  val name = "times-two"
   def makeF(p: Params) = {
     { _ * 2 }
   }
@@ -122,7 +121,6 @@ object TimesTwoAnalyzer extends Analyzer[Int, Int] {
 }
 
 object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
-  val name = "word-count"
   def makeF(p: Params) = {
     { x =>
       import FullText._
@@ -139,7 +137,6 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
   import org.apache.tika.Tika
   import models.JsonImplicits._
 
-  val name = "extract"
   val tika = new Tika
 
   def copy(input: Reader, output: Writer, bufSize: Int = 2048) = {
@@ -187,22 +184,34 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
   val coordinatorClass = classOf[CoordinatorImpl]
 }
 
-trait TopicModelAnalyzer {
+trait DBAccess {
+  def withDB[T](block: Session => T) = {
+    import play.api.Play.current
+
+    DB.withSession { implicit s =>
+      block(s)
+    }
+  }
 }
 
-object HDPAnalyzer extends Analyzer[models.Corpus, org.chrisjr.corpora.Corpus] with TopicModelAnalyzer {
-  import models.CorpusImplicits._
-  import org.chrisjr.corpora._
+object Preprocessors {
+  
+}
 
-  val name = "hdp"
+trait TopicModelAnalyzer extends Analyzer[models.Corpus, org.chrisjr.topic_annotator.corpora.Corpus] with DBAccess {
+  def makePreprocessingChain(p: Params) = {
+    Seq(new MinLengthRemover(3))
+  }
+}
+
+object HDPAnalyzer extends TopicModelAnalyzer {
+  import models.CorpusImplicits._
+
   def makeF(p: Params) = {
-    //    val transformers = (p \\ "preprocess")
-    val transformers = Seq(new MinLengthRemover(3))
+    val transformers = makePreprocessingChain(p)
 
     { corpus =>
-      import play.api.Play.current
-
-      DB.withSession { implicit s =>
+      withDB { implicit s =>
         val transformed = corpus.transform(transformers)
         transformed
       }
@@ -224,7 +233,9 @@ object Analyzers {
     values: Values.Aux[B, V],
     ktl: ToList[K, Any],
     vtl: ToList[V, Any]) = {
-    ((corpusAnalyzers.keys.toList zip corpusAnalyzers.values.toList) collect { case (field, value) if field == name => value }).headOption
+    ((corpusAnalyzers.keys.toList zip corpusAnalyzers.values.toList) collect {
+      case (field, value) if field == name => value
+    }).headOption
   }
 
 }
