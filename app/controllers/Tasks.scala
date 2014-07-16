@@ -62,6 +62,11 @@ object Tasks extends Controller {
         Ok("could not start")
     }
   }
+  
+  def getResults[R](resultID: Int) = {
+    import org.chrisjr.topic_annotator.corpora.Util
+    Util.unpickle[Array[Try[R]]](new java.io.File(Actors.resultsDir, resultID.toString))
+  }
 
   /**
    * Cancels a task in progress (if already completed, does nothing).

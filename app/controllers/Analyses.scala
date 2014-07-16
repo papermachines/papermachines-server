@@ -38,7 +38,8 @@ object Analyses extends Controller {
           controllers.Tasks.startTask(analyzer, work, params) match {
             case Success(name) =>
               val resultURL = routes.Tasks.find(name)
-              Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
+              Redirect(resultURL)
+//              Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
             case Failure(e) =>
               val exc = UnexpectedException(Some("Analysis failed"), Some(e))
               InternalServerError(views.html.defaultpages.error(exc))

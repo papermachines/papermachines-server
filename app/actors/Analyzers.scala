@@ -4,6 +4,8 @@ import akka.actor._
 import akka.routing._
 import akka.event.Logging
 import scala.util.{ Try, Success, Failure }
+import scala.collection.immutable
+
 import play.api.data._
 import play.api.data.Forms._
 import play.api.libs.json._
@@ -22,17 +24,22 @@ import shapeless._
 import syntax.singleton._
 import record._
 
-abstract class Analyzer[T, R] {
-  type Params = TaskManager.Params
+abstract class Analyzer[T, R <% Serializable] {
+  type Params
   type F = T => R
 
   val form: Option[Form[Params]] = None
 
   val maxWorkers: Int = 1
-  def makeF(params: Params): F
+  def makeF(p: Option[Params]): F
   val coordinatorClass: Class[_]
 
-  def onDone(results: Seq[Try[R]]) = {}
+  def onDone(results: Seq[Try[R]]) = {
+    val resultID = results.hashCode
+    val resultFile = new File(Actors.resultsDir, resultID.toString)
+    Util.pickle(resultFile, results.toArray)
+    resultID
+  }
 
   class Coordinator(
     replyTo: ActorRef,
@@ -82,8 +89,9 @@ abstract class Analyzer[T, R] {
             log.error(e.getMessage)
         }
         if (done == total) {
-          onDone(results)
-          replyTo ! TaskCoordinator.Results(self.path.name, results)
+          val resultID = onDone(results)
+          replyTo ! TaskManager.Done(resultID)
+          //          replyTo ! TaskCoordinator.Results(self.path.name, results)
         }
       case TaskCoordinator.GetProgress =>
         if (total == -1) replyTo ! TaskCoordinator.NoWorkReceived
@@ -106,13 +114,16 @@ abstract class Analyzer[T, R] {
     }
   }
 
-  def actorProps(parent: ActorRef, params: Params) = {
-    Props(coordinatorClass, parent, makeF(params))
+  def parseJSON(p: TaskManager.Params): Option[Params] = None
+
+  def actorProps(parent: ActorRef, params: TaskManager.Params) = {
+    Props(coordinatorClass, parent, makeF(parseJSON(params)))
   }
 }
 
 object TimesTwoAnalyzer extends Analyzer[Int, Int] {
-  def makeF(p: Params) = {
+  case object Params
+  def makeF(p: Option[Params]) = {
     { _ * 2 }
   }
   class WorkerImpl(f: F) extends Worker(f: F)
@@ -120,12 +131,12 @@ object TimesTwoAnalyzer extends Analyzer[Int, Int] {
   val coordinatorClass = classOf[CoordinatorImpl]
 }
 
-object WordCountAnalyzer extends Analyzer[Text, Map[String, Int]] {
-  def makeF(p: Params) = {
+object WordCountAnalyzer extends Analyzer[Text, immutable.HashMap[String, Int]] {
+  def makeF(p: Option[Params]) = {
     { x =>
       import FullText._
       val words = x.text.get.toLowerCase.split(" ")
-      words.groupBy(identity).mapValues(_.length)
+      immutable.HashMap[String, Int]() ++ words.groupBy(identity).mapValues(_.length)
     }
   }
   class WorkerImpl(f: F) extends Worker(f: F)
@@ -137,6 +148,9 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
   import org.apache.tika.Tika
   import models.JsonImplicits._
 
+  case class Params(outputDir: URI)
+  override def parseJSON(p: JsObject) = (p \ "output-dir").asOpt[URI].map(Params(_))
+
   val tika = new Tika
 
   def copy(input: Reader, output: Writer, bufSize: Int = 2048) = {
@@ -147,8 +161,9 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
       output.write(buffer, 0, count)
   }
 
-  def makeF(p: Params) = {
-    val outputDir = new File((p \ "output-dir").as[URI])
+  def makeF(p: Option[Params]) = {
+    val params = p.getOrElse(throw new IllegalArgumentException(s"No output directory provided!"))
+    val outputDir = new File(params.outputDir)
     if (!outputDir.canWrite)
       throw new IllegalArgumentException(s"Cannot write to $outputDir!")
 
@@ -171,12 +186,14 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
 
     DB.withSession { implicit s =>
       for (
-        textTry <- results;
-        text <- textTry if text.id.nonEmpty
+        textTry <- results.filter(_.isSuccess);
+        text = textTry.get if textTry.get.id.nonEmpty
       ) {
         models.Texts.update(text, text.plaintextUri.get)
       }
     }
+
+    super.onDone(results)
   }
 
   class WorkerImpl(f: F) extends Worker(f: F)
@@ -195,11 +212,13 @@ trait DBAccess {
 }
 
 object Preprocessors {
-  
+
 }
 
 trait TopicModelAnalyzer extends Analyzer[models.Corpus, org.chrisjr.topic_annotator.corpora.Corpus] with DBAccess {
-  def makePreprocessingChain(p: Params) = {
+  case class Params(preprocessors: Seq[CorpusTransformer])
+
+  def makePreprocessingChain(js: Seq[JsObject]) = {
     Seq(new MinLengthRemover(3))
   }
 }
@@ -207,8 +226,9 @@ trait TopicModelAnalyzer extends Analyzer[models.Corpus, org.chrisjr.topic_annot
 object HDPAnalyzer extends TopicModelAnalyzer {
   import models.CorpusImplicits._
 
-  def makeF(p: Params) = {
-    val transformers = makePreprocessingChain(p)
+  def makeF(p: Option[Params]) = {
+    val params = p.getOrElse(throw new IllegalArgumentException(s"Parameters not passed to HDP!"))
+    val transformers = params.preprocessors
 
     { corpus =>
       withDB { implicit s =>

@@ -12,6 +12,7 @@ import play.api.libs.json._
 
 object TaskManager {
   type Params = JsObject
+  type ResultID = Int
   case object GetTasks
   case class TaskNames(xs: Iterable[String])
 
@@ -21,7 +22,7 @@ object TaskManager {
   case class GetProgressFor(name: String)
   case class CancelTask(name: String)
   case class Canceled(name: String)
-  case class Done(resultID: Long)
+  case class Done(resultID: ResultID)
 
   case object TaskNotFound  
 }
@@ -45,7 +46,7 @@ object TaskWorker {
 class TaskManager extends Actor {
   val log = Logging(context.system, this)
   var outside: Option[ActorRef] = None
-  var finished = Map[String, Long]()
+  var finished = Map[String, TaskManager.ResultID]()
 
   def forwardToController[T: ClassTag](t: T) = {
     outside match {
@@ -87,14 +88,13 @@ class TaskManager extends Actor {
         case None =>
           outside.getOrElse(sender) ! TaskManager.TaskNotFound
       }
+    case done @ TaskManager.Done(resultID) =>
+      finished += sender.path.name -> resultID
+      forwardToController(done)
     case s: TaskManager.Started =>
       forwardToController(s)
     case p: TaskCoordinator.Progress =>
       forwardToController(p)
-    case r: TaskCoordinator.Results[_] =>
-      // TODO store results somehow
-      finished += sender.path.name -> 1L
-      forwardToController(r)
     case Terminated(child) =>
       forwardToController(TaskManager.Canceled(child.path.name))
   }

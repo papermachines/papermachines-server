@@ -47,8 +47,9 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
           case TaskCoordinator.Progress(name, amt) =>
             println(f"${amt * 100.0}%2.2f%%")
             Thread.sleep(100)
-          case TaskCoordinator.Results(_, x) =>
-            onSuccess(x.asInstanceOf[Seq[Try[R]]])
+          case TaskManager.Done(resultID) =>
+            val results = controllers.Tasks.getResults[R](resultID)
+            onSuccess(results)
             break
         }
       }

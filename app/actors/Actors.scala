@@ -15,6 +15,8 @@ object Actors {
     .getOrElse(sys.error("Actors plugin not registered"))
 
   def taskManager(implicit app: Application) = actors.taskManager
+  
+  val resultsDir = new java.io.File("/tmp")
 }
 
 /**
