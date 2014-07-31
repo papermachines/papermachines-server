@@ -75,6 +75,11 @@ class Texts(tag: Tag) extends TableWithAutoIncId[Text](tag, "TEXTS", "TEXT_ID") 
 object Texts extends BasicCrud[Texts, Text] {
   val table = TableQuery[Texts]
 
+  sealed trait Status
+  case object Created extends Status
+  case object Found extends Status
+  case object Updated extends Status
+
   def insertIfNotExistsByExternalID(text: Text)(implicit s: Session) = {
     val existing = table.where(_.externalID === text.externalID).list
     existing.headOption match {
@@ -82,6 +87,22 @@ object Texts extends BasicCrud[Texts, Text] {
         (textFound.id.get, false)
       case None =>
         (create(text), true)
+    }
+  }
+
+  def insertOrReplaceIfNewer(text: Text)(implicit s: Session) = {
+    val existing = table.where(_.externalID === text.externalID).list
+    existing.headOption match {
+      case Some(textFound) =>
+        val oldID = textFound.id.get
+        if (text.lastModified.compareTo(textFound.lastModified) == 1) {
+          create(text.copy(id = Some(oldID)))
+          (oldID, Updated)
+        } else {
+          (oldID, Found)
+        }
+      case None =>
+        (create(text), Created)
     }
   }
 
