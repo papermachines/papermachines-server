@@ -2,6 +2,7 @@ import org.scalatest._
 import org.scalatestplus.play._
 import org.scalatest.Matchers._
 
+import play.api.libs.json._ 
 import play.api.libs.ws._ 
 import play.api.test.Helpers._
 
@@ -11,7 +12,7 @@ class ApplicationSpec extends PlaySpec with OneServerPerSuite {
 
   "Application" should {
     "create a corpus" in {
-      val corpusJson = """{"name":"Testing","externalID":"-1"}"""
+      val corpusJson = Json.obj("name" -> "Testing", "externalID" -> "-1")
       val response = await(WS.url(corporaEndpoint).post(corpusJson))
       response.status shouldBe (CREATED)
     }
