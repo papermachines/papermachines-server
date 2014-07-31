@@ -4,21 +4,30 @@ import org.scalatest._
 import org.scalatestplus.play._
 import org.scalatest.Matchers._
 import play.api.libs.json._
+import org.joda.time.DateTime
 
 class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
   val fakeTexts = (for {
     i <- 1 to 10
-    uri = s"test$i"
-  } yield Text(uri = new java.net.URI(uri)))
+    externalID = s"$i"
+    uri = new java.net.URI(s"test$i")
+  } yield Text(uri = uri, externalID = Some(externalID), lastModified = DateTime.parse("1999")))
 
   "A Corpus" should {
     import Corpus._
 
-    "be able to add new texts" in db { implicit s =>
+    "be creatable from texts" in db { implicit s =>
       val newCorpusID = Corpora.fromTexts("test", fakeTexts)
       val corpusOpt = Corpora.find(newCorpusID)
       assert(corpusOpt.nonEmpty)
       assert(corpusOpt.get.texts.length == fakeTexts.length)
+    }
+
+    "be able to update texts" in db { implicit s =>
+      val newCorpusID = Corpora.fromTexts("test", fakeTexts)
+      val updatedText = fakeTexts.head.copy(lastModified = DateTime.now())
+      val status = Corpora.addTextTo(newCorpusID, updatedText)
+      status shouldBe Texts.Updated
     }
 
     "be serializable to JSON" in {

@@ -10,7 +10,6 @@ import play.api.libs.json._
 import scala.util.{ Try, Success, Failure }
 import org.chrisjr.topic_annotator.corpora._
 
-
 case class Corpus(id: Option[Long] = None, name: String, externalID: Option[String] = None) extends Item {
   def texts(implicit s: Session): Seq[Text] = {
     val links = TableQuery[CorporaTexts]
@@ -23,7 +22,7 @@ case class Corpus(id: Option[Long] = None, name: String, externalID: Option[Stri
 }
 
 object Corpus {
-  implicit val corpusFmt = Json.format[Corpus]  
+  implicit val corpusFmt = Json.format[Corpus]
 }
 
 object CorpusImplicits {
@@ -50,12 +49,26 @@ class CorporaTexts(tag: Tag) extends Table[(Long, Long)](tag, "CORPORA_TEXTS") {
 
   def corpus = foreignKey("CORPTEXT_CORP_FK", corpusID, TableQuery[Corpora])(_.id)
   def text = foreignKey("CORPTEXT_TEXT_FK", textID, TableQuery[Texts])(_.id)
+  def idx = index("CORPTEXT_IDX", (corpusID, textID), unique = true)
+}
+
+object CorporaTexts {
+  val table = TableQuery[CorporaTexts]
+
+  def addToCorpus(corpusID: Long, textIDs: Seq[Long])(implicit s: Session) = {
+    for (textID <- textIDs) {
+      try {
+        table += (corpusID, textID)
+      } catch {
+        // ignore unique violation
+        case _: Throwable => ()
+      }
+    }
+  }
 }
 
 object Corpora extends BasicCrud[Corpora, Corpus] {
   val table = TableQuery[Corpora]
-  val texts = TableQuery[Texts]
-  val corporaTexts = TableQuery[CorporaTexts]
 
   /**
    * Add a corpus using a sequence of texts.
@@ -73,18 +86,22 @@ object Corpora extends BasicCrud[Corpora, Corpus] {
     corpusID
   }
 
-  def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): (Int, Int) = {
-    val textIds = for {
-      text <- textsIn
-      (id, isNew) = Texts.insertIfNotExistsByExternalID(text)      
-    } yield (id, isNew)
+  def addTextTo(corpusID: Long, text: Text)(implicit s: Session): (Long, Texts.Status) = {
+    val (textID, status) = Texts.insertOrReplaceIfNewer(text)
 
-    corporaTexts ++= Stream.continually(corpusID) zip (textIds.unzip._1)
-    
-    val (newIds, oldIds) = textIds.partition(_._2)
+    CorporaTexts.addToCorpus(corpusID, Seq(textID))
+    (textID, status)
+  }
+
+  def addTextsTo(corpusID: Long, textsIn: Seq[Text])(implicit s: Session): (Int, Int) = {
+    val idsAndStatus = textsIn.map(Texts.insertOrReplaceIfNewer(_))
+
+    CorporaTexts.addToCorpus(corpusID, idsAndStatus.unzip._1)
+
+    val (newIds, oldIds) = idsAndStatus.partition(_._2 == Texts.Created)
     (newIds.size, oldIds.size)
   }
-  
+
   def insertIfNotExistsByExternalID(corpus: Corpus)(implicit s: Session) = {
     val existing = table.where(_.externalID === corpus.externalID).list
     existing.headOption match {

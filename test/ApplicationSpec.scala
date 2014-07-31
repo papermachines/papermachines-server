@@ -1,10 +1,22 @@
 import org.scalatest._
 import org.scalatestplus.play._
+import org.scalatest.Matchers._
 
-class ApplicationSpec extends PlaySpec {
+import play.api.libs.ws._ 
+import play.api.test.Helpers._
+
+class ApplicationSpec extends PlaySpec with OneServerPerSuite {
+  val myPublicAddress =  s"localhost:$port"
+  val corporaEndpoint = s"http://$myPublicAddress/corpora"
 
   "Application" should {
-    "return an index" in {
+    "create a corpus" in {
+      val corpusJson = """{"name":"Testing","externalID":"-1"}"""
+      val response = await(WS.url(corporaEndpoint).post(corpusJson))
+      response.status shouldBe (CREATED)
+    }
+
+    "add texts" in {
     }
   }
 }

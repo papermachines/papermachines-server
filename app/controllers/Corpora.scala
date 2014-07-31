@@ -11,7 +11,7 @@ import models.Text._
 
 object Corpora extends Controller {
   import models.CorpusImplicits._
-  
+
   def index = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpora = models.Corpora.list
@@ -86,9 +86,16 @@ object Corpora extends Controller {
           val corpusOpt = models.Corpora.find(id)
           corpusOpt match {
             case Some(corpus) =>
-              val (newTexts, oldTexts) = models.Corpora.addTextsTo(id, Seq(text))
-              val reply = Json.obj("status" -> "OK", "id" -> id)
-              if (newTexts > 0) Created(reply) else Ok(reply)
+              val (textID, status) = models.Corpora.addTextTo(id, text)
+              val reply = Json.obj("status" -> "OK", "id" -> textID)
+              status match {
+                case models.Texts.Created =>
+                  Created(reply)
+                case models.Texts.Found =>
+                  Ok(reply + ("updated" -> JsBoolean(false)))
+                case models.Texts.Updated =>
+                  Ok(reply + ("updated" -> JsBoolean(true)))
+              }
             case None =>
               val message = Json.obj("id" -> id, "error" -> "Corpus does not exist")
               BadRequest(Json.obj("status" -> "KO", "message" -> message))
