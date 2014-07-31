@@ -88,13 +88,14 @@ object Corpora extends Controller {
             case Some(corpus) =>
               val (textID, status) = models.Corpora.addTextTo(id, text)
               val reply = Json.obj("status" -> "OK", "id" -> textID)
+              val textStatusKey = "text"
               status match {
                 case models.Texts.Created =>
-                  Created(reply)
+                  Created(reply + (textStatusKey -> JsString("new")))
                 case models.Texts.Found =>
-                  Ok(reply + ("updated" -> JsBoolean(false)))
+                  Ok(reply + (textStatusKey -> JsString("found")))
                 case models.Texts.Updated =>
-                  Ok(reply + ("updated" -> JsBoolean(true)))
+                  Ok(reply + (textStatusKey -> JsString("updated")))
               }
             case None =>
               val message = Json.obj("id" -> id, "error" -> "Corpus does not exist")
