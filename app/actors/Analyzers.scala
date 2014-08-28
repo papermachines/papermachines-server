@@ -170,7 +170,7 @@ object ExtractAnalyzer extends Analyzer[Text, Text] {
     { x =>
       val file = new File(x.uri)
       val reader = tika.parse(file)
-      val outputFile = new File(outputDir, file.getName + ".txt")
+      val outputFile = new File(outputDir, s"${x.externalID.getOrElse(x.id)}.txt")
       val writer = new OutputStreamWriter(new FileOutputStream(outputFile), "UTF-8")
 
       copy(reader, writer)
