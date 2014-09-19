@@ -20,7 +20,10 @@ case class Text(
   metadata: JsObject = Json.obj(),
   lastModified: DateTime = DateTime.now,
   externalID: Option[String] = None,
-  plaintextUri: Option[URI] = None) extends Item
+  plaintextUri: Option[URI] = None) extends Item {
+  def outputFilename = java.net.URLEncoder.encode(s"${this.externalID.getOrElse(this.id.get)}.txt", "UTF-8")
+
+}
 
 object Text {
   import JsonImplicits._

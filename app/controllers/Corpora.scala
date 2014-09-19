@@ -63,6 +63,27 @@ object Corpora extends Controller {
     }
   }
 
+  def exportTSV(id: Long) = Action { implicit request =>
+    DB.withSession { implicit s =>
+      val corpusOption = models.Corpora.find(id)
+      corpusOption match {
+        case Some(corpus) =>
+          val tmp = java.io.File.createTempFile("corpus", ".tsv")
+          val writer = new java.io.PrintWriter(tmp, "UTF-8")
+          val header = Seq("uri", "url")
+          writer.println(header.mkString("\t"))
+          corpus.texts.foreach { doc => 
+            val row = Seq(doc.plaintextUri.getOrElse(doc.outputFilename), (doc.metadata \ "URL").asOpt[String].getOrElse(""))
+            writer.println(row.mkString("\t"))
+          }
+          writer.close
+          Ok.sendFile(tmp)
+        case None => NotFound(views.html.defaultpages.notFound(request, None))
+      }
+    }
+  }
+
+  
   def getTexts(id: Long) = Action { implicit request =>
     DB.withSession { implicit s =>
       val corpusOption = models.Corpora.find(id)
