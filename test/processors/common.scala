@@ -12,14 +12,14 @@ trait AnalysesCommon {
     require(corpusID > 0, "Invalid corpus ID")
     val filledForm = processor.form.fill(procRequest)
 
-    val request = FakeRequest(POST, s"/corpora/$corpusID/${processor.name}")
+    val request = FakeRequest(POST, s"/analyze/${processor.name}")
       .withFormUrlEncodedBody(filledForm.data.toSeq: _*)
     call(controllers.Analyses.create(processor.name), request)
   }
 
   def retrieveResultUrl(taskUrl: String): Option[String] = {
     var resultUrl: Option[String] = None
-    var retries = 5
+    var retries = 10
     while (resultUrl.isEmpty && retries > 0) {
       Thread.sleep(200)
       route(FakeRequest(GET, taskUrl)).map { result =>

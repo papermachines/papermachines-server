@@ -24,10 +24,20 @@ class WordCloudSpec extends PlaySpec with models.CorpusFixture with AnalysesComm
       
       val resultUrl = retrieveResultUrl(taskUrl)
       
-      val results = controllers.Tasks.getResults[JsObject](1L)
+      val analysisIDr = "/analyses/([0-9]+)".r
+      val resultID = resultUrl.getOrElse("") match {
+        case analysisIDr(id) => id.toLong
+        case _ => fail("No results found")
+      }
+      
+      val results = controllers.Tasks.getResults[JsObject](resultID)
       results.head mustBe 'success
 
-      println(results.head.get)
+      val freqs = results.head.get
+      freqs.fieldSet.size mustBe 26
+      for ((word, freq) <- freqs.fieldSet) {
+        freq.as[Int] mustEqual 100
+      }
     }
   }
 }

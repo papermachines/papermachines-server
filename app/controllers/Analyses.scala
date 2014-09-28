@@ -86,8 +86,7 @@ object Analyses extends Controller {
       val analysisOpt = models.Analyses.find(id)
       analysisOpt match {
         case Some(analysis) =>
-          // TODO figure out where analyses should really reside
-          Redirect(analysis.uri.toURL.toString)
+          Ok.sendFile(new java.io.File(analysis.uri))
         case None => NotFound(views.html.defaultpages.notFound(request, None))
       }
     }

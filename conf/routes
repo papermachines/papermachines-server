@@ -19,8 +19,7 @@ POST	/corpora/:id/texts			controllers.Corpora.addTextTo(id: Long)
 GET		/corpora/:id/extract		controllers.Analyses.extract(id: Long)
 GET		/corpora/:id/analyses		controllers.Analyses.indexFor(id: Long)
 
-POST	/corpora/:id/:processorName	controllers.Analyses.create(processorName)
-
+POST	/analyze/:processorName		controllers.Analyses.create(processorName)
 
 GET		/texts						controllers.Texts.index
 POST	/texts						controllers.Texts.create

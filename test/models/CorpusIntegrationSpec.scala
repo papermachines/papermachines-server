@@ -25,7 +25,7 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
     "be able to update texts" in db { implicit s =>
       val newCorpusID = Corpora.fromTexts("test", fakeTexts)
       val updatedText = fakeTexts.head.copy(lastModified = DateTime.now())
-      val status = Corpora.addTextTo(newCorpusID, updatedText)
+      val (textID, status) = Corpora.addTextTo(newCorpusID, updatedText)
       status shouldBe Texts.Updated
     }
 

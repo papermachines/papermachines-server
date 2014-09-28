@@ -10,47 +10,28 @@ import processors._
 import scala.concurrent.Future
 import play.api.mvc.Result
 
-class AnalysesSpec extends PlaySpec with CorpusFixture {
+class AnalysesSpec extends PlaySpec with CorpusFixture with AnalysesCommon {
   val processor = NoopProcessor
-
-  def startAnalysis(): Future[Result] = {
-    val procRequest = processor.ProcessRequest(corpusID, None)
-    val filledForm = processor.form.fill(procRequest)
-
-    val request = FakeRequest(POST, s"/corpora/$corpusID/${processor.name}")
-      .withFormUrlEncodedBody(filledForm.data.toSeq: _*)
-    call(Analyses.create(processor.name), request)
-  }
-
-  val analysisIDr = "/analyses/([0-9]+)".r
-
-  def retrieveID(taskUrl: String): Option[Long] = {
-    route(FakeRequest(GET, taskUrl)).flatMap { result =>
-      redirectLocation(result).map { resultUrl =>
-        resultUrl match {
-          case analysisIDr(id) => id.toLong
-          case _ => fail("Could not get analysis ID.")
-        }
-      }
-    }
-  }
 
   "An Analysis" should {
     "be created on request" in {
-      val analysisRequest = startAnalysis()
+      val procRequest = processor.ProcessRequest(corpusID, None)
+      val analysisRequest = startAnalysis(corpusID, processor)(procRequest)
       status(analysisRequest) mustEqual ACCEPTED
 
-      val analysisID = retrieveID(contentAsString(analysisRequest))
-      analysisID.isDefined shouldBe true
+      val resultUrl = retrieveResultUrl(contentAsString(analysisRequest))
+      resultUrl.isDefined shouldBe true
     }
 
     "be retrievable from the DB" in {
-      val analysisRequest = startAnalysis()
+      val procRequest = processor.ProcessRequest(corpusID, None)
+      val analysisRequest = startAnalysis(corpusID, processor)(procRequest)
       status(analysisRequest) mustEqual ACCEPTED
 
-      val analysisID = retrieveID(contentAsString(analysisRequest)).getOrElse(fail("Analysis ID could not be obtained."))
-      val result = route(FakeRequest(GET, s"/analyses/$analysisID")).getOrElse(fail("Could not retrieve analysis."))
-      status(result) mustEqual OK
+      retrieveResultUrl(contentAsString(analysisRequest)).map({ resultUrl =>
+        val result = route(FakeRequest(GET, resultUrl)).getOrElse(fail("Could not retrieve analysis."))
+        status(result) mustEqual OK
+      }).getOrElse(fail("No result found"))
     }
   }
 }
