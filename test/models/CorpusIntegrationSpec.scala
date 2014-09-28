@@ -12,7 +12,6 @@ class CorpusIntegrationSpec extends PlaySpec with AppWithTestDB {
     externalID = s"$i"
     uri = new java.net.URI(s"test$i")
   } yield Text(uri = uri, externalID = Some(externalID), lastModified = DateTime.parse("1999")))
-
   "A Corpus" should {
     import Corpus._
 

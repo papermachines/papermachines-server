@@ -21,7 +21,10 @@ case class Text(
   lastModified: DateTime = DateTime.now,
   externalID: Option[String] = None,
   plaintextUri: Option[URI] = None) extends Item {
-  def outputFilename = java.net.URLEncoder.encode(s"${this.externalID.getOrElse(this.id.get)}.txt", "UTF-8")
+  def outputFilename = {
+    val name = externalID.orElse(id).orElse(Some(uri)).get.toString
+    java.net.URLEncoder.encode(s"$name.txt", "UTF-8")
+  }
 
 }
 

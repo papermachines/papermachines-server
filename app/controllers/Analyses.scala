@@ -2,17 +2,16 @@ package controllers
 
 import play.api._
 import play.api.mvc._
+import play.api.data._
+import play.api.data.Forms._
 import play.api.db.slick._
 import play.api.Play.current
 import play.api.libs.json._
 import models.Analysis
-import actors.Analyzer
-import actors.Analyzers
+import processors._
 import scala.util.{ Try, Success, Failure }
 import play.core.Router
-
-import shapeless._
-import record._
+import actors.Actors
 
 object Analyses extends Controller {
   import Analysis._
@@ -26,6 +25,13 @@ object Analyses extends Controller {
     }
   }
 
+  def indexFor(corpusID: Long) = Action {
+    DB.withSession { implicit s =>
+      val analyses = models.Analyses.list.filter(_.corpusID == Some(corpusID))
+      Ok(views.html.Analyses.index(analyses))
+    }
+  }
+
   def extract(id: Long) = Action {
     val analyzer = actors.ExtractAnalyzer
     DB.withSession { implicit session =>
@@ -33,13 +39,13 @@ object Analyses extends Controller {
       corpusOpt match {
         case Some(corpus) =>
           val work = corpus.texts
-          val outputDir = new java.io.File("/Users/chrisjr/Desktop/sstexts").toURI
+          val outputDir = new java.io.File(actors.Actors.resultsDir, "texts").toURI
           val params = Json.obj("output-dir" -> Json.toJson(outputDir))
           controllers.Tasks.startTask(analyzer, work, params) match {
             case Success(name) =>
               val resultURL = routes.Tasks.find(name)
               Redirect(resultURL)
-//              Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
+            //              Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
             case Failure(e) =>
               val exc = UnexpectedException(Some("Analysis failed"), Some(e))
               InternalServerError(views.html.defaultpages.error(exc))
@@ -48,39 +54,31 @@ object Analyses extends Controller {
           BadRequest(Json.obj("status" -> "KO", "message" -> s"Corpus $id not found!"))
       }
     }
-
   }
 
-  def create = Action(parse.json) { implicit request =>
-    val analysisRequest = request.body.validate[Analysis]
-    analysisRequest.fold(
-      errors => {
-        BadRequest(Json.obj("status" -> "KO", "message" -> JsError.toFlatJson(errors)))
-      },
-      analysis => {
-        Analyzers.byName(analysis.analysisType) match {
-          case Some(analyzer) =>
-            DB.withSession { implicit session =>
-              val corpusOpt = models.Corpora.find(analysis.corpusID)
-              corpusOpt match {
-                case Some(corpus) =>
-                  val work = Seq(corpus)
-                  controllers.Tasks.startTask(analyzer, work) match {
-                    case Success(name) =>
-                      val resultURL = routes.Tasks.find(name)
-                      Accepted(Json.obj("status" -> "OK", "message" -> resultURL.toString))
-                    case Failure(e) =>
-                      val exc = UnexpectedException(Some("Analysis failed"), Some(e))
-                      InternalServerError(views.html.defaultpages.error(exc))
-                  }
-                case None =>
-                  BadRequest(Json.obj("status" -> "KO", "message" -> s"Corpus ${analysis.corpusID} not found!"))
+  def create(processorName: String) = Action { implicit request =>
+    Processors.byName(processorName).fold(BadRequest(s"No process $processorName found.")) { processor =>
+      processor.form.bindFromRequest.fold(
+        errors => {
+          BadRequest(processor.requestView(processor, Some(errors)))
+        },
+        params => {
+          DB.withSession { implicit session =>
+            models.Corpora.find(params.corpusID)
+              .fold(BadRequest(s"Corpus ${params.corpusID} not found!")) { corpus =>
+                val work = Seq(corpus)
+                controllers.Tasks.startTask(processor.analyzer, work, processor.writeJsonParams(params)) match {
+                  case Success(name) =>
+                    val resultURL = routes.Tasks.find(name)
+                    Accepted(resultURL.toString)
+                  case Failure(e) =>
+                    val exc = UnexpectedException(Some("Analysis failed"), Some(e))
+                    InternalServerError(views.html.defaultpages.error(exc))
+                }
               }
-            }
-          case None =>
-            BadRequest(Json.obj("status" -> "KO", "message" -> s"No analyzer of type ${analysis.analysisType}!"))
-        }
-      })
+          }
+        })
+    }
   }
 
   def find(id: Long) = Action { implicit request =>

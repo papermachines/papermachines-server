@@ -42,14 +42,27 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
   def checkProgress[R](taskManager: ActorRef, myName: String, onSuccess: Seq[Try[R]] => Unit)(implicit i: ActorDSL.Inbox) = {
     breakable {
       for (_ <- 0 to 100) {
-        taskManager ! TaskManager.GetProgressFor(myName)
+        val coordinator = controllers.Tasks.getCoordinator(myName)
+        coordinator ! TaskCoordinator.GetProgress
         i.receive(1 second) match {
-          case TaskCoordinator.Progress(name, amt) =>
-            println(f"${amt * 100.0}%2.2f%%")
-            Thread.sleep(100)
-          case TaskManager.Done(resultID) =>
-            val results = controllers.Tasks.getResults[R](resultID)
-            onSuccess(results)
+          case x: TaskCoordinator.Out => x match {
+            case TaskCoordinator.Progress(amt) =>
+              println(f"${amt * 100.0}%2.2f%%")
+              Thread.sleep(100)
+            case TaskCoordinator.Done(resultID) =>
+              val results = controllers.Tasks.getResults[R](resultID)
+              onSuccess(results)
+              break
+            case TaskCoordinator.Canceled =>
+            case TaskCoordinator.Failed =>
+            case TaskCoordinator.NoWorkReceived =>
+            case TaskCoordinator.NotFound =>
+            case TaskCoordinator.Results(_, _) =>
+            case TaskWorker.WorkUnit(_, _) =>
+              break
+          }
+          case x =>
+            println(s"Unknown message ${x.getClass} received")
             break
         }
       }
@@ -114,7 +127,7 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
         def accept(d: File, n: String) = n.toLowerCase.endsWith(".pdf")
       }
       val pdfs = leavesDir.listFiles(pdfFilter).map(_.toURI).map { uri =>
-      	Text(uri = uri)
+        Text(uri = uri)
       }
 
       val outputPath = Files.createTempDirectory("output")

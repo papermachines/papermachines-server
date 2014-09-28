@@ -20,6 +20,14 @@ object Tasks extends Controller {
   implicit val system = Akka.system
   implicit val i = inbox()
   implicit val timeout = 10 seconds
+  
+  def getCoordinator(name: String): ActorRef = {
+    taskManager ! TaskManager.GetCoordinator(name)
+    i.receive(timeout) match {
+      case TaskManager.Coordinator(ref) => ref
+      case x => throw new IllegalStateException(s"Unknown message $x received.")
+    }
+  }
 
   def index = Action {
     taskManager ! TaskManager.GetTasks
@@ -31,13 +39,14 @@ object Tasks extends Controller {
   }
 
   def find(id: String) = Action {
-    taskManager ! TaskManager.GetProgressFor(id)
+    val ref = getCoordinator(id)
+    ref ! TaskCoordinator.GetProgress
     i.receive(timeout) match {
-      case TaskManager.Done(resultID) =>
+      case TaskCoordinator.Done(resultID) =>
         Redirect(routes.Analyses.find(resultID))
-      case TaskCoordinator.Progress(name, amt) =>
+      case TaskCoordinator.Progress(amt) =>
         Ok(views.html.Tasks.progress((amt * 100.0).toInt))
-      case TaskManager.TaskNotFound =>
+      case TaskCoordinator.NotFound =>
         NotFound
     }
   }
@@ -63,9 +72,13 @@ object Tasks extends Controller {
     }
   }
   
-  def getResults[R](resultID: Int) = {
+  def getResults[R](resultID: Long) = {
     import org.chrisjr.topic_annotator.corpora.Util
-    Util.unpickle[Array[Try[R]]](new java.io.File(Actors.resultsDir, resultID.toString))
+    DB.withSession { implicit s =>
+      val analysis = models.Analyses.find(resultID)
+        .getOrElse(throw new IllegalArgumentException(s"No analysis $resultID found"))
+      Util.unpickle[Array[Try[R]]](new java.io.File(analysis.uri))    
+    }
   }
 
   /**
@@ -75,11 +88,12 @@ object Tasks extends Controller {
    * @return
    */
   def delete(id: String) = Action {
-    taskManager ! TaskManager.CancelTask(id)
+    val ref = getCoordinator(id)
+    ref ! TaskCoordinator.Cancel
     i.receive(timeout) match {
-      case TaskManager.Canceled(name) if name == id =>
+      case TaskCoordinator.Canceled =>
         Ok("Deleted")
-      case TaskManager.TaskNotFound =>
+      case TaskCoordinator.NotFound =>
         NotFound
     }
   }

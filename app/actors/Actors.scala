@@ -6,9 +6,8 @@ import java.net.URL
 
 import akka.actor._
 
-/**
- * Lookup for actors used by the web front end.
- */
+/** Lookup for actors used by the web front end.
+  */
 object Actors {
 
   private def actors(implicit app: Application) = app.plugin[Actors]
@@ -20,10 +19,10 @@ object Actors {
 }
 
 /**
- * Manages the creation of actors in the web front end.
- *
- * This is discovered by Play in the `play.plugins` file.
- */
+  * Manages the creation of actors in the web front end.
+  *
+  * This is discovered by Play in the `play.plugins` file.
+  */
 class Actors(app: Application) extends Plugin {
 
   private def system = Akka.system(app)

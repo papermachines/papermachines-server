@@ -11,7 +11,7 @@ import play.api.libs.json._
 
 case class Analysis(
   id: Option[Long] = None,
-  corpusID: Long,
+  corpusID: Option[Long] = None,
   analysisType: String,
   params: TaskManager.Params,
   uri: URI,
@@ -23,7 +23,7 @@ object Analysis {
 }
 
 class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "ANALYSIS_ID") {
-  def corpusID = column[Long]("CORP_ID")
+  def corpusID = column[Option[Long]]("CORP_ID")
   def analysisType = column[String]("ANALYSIS_TYPE")
   def params = column[JsObject]("ANALYSIS_PARAMS")
   def uri = column[URI]("ANALYSIS_URI")
@@ -31,9 +31,13 @@ class Analyses(tag: Tag) extends TableWithAutoIncId[Analysis](tag, "ANALYSES", "
 
   def * = (id.?, corpusID, analysisType, params, uri, finishedAt) <> ((Analysis.apply _).tupled, Analysis.unapply _)
 
-  def corpus = foreignKey("ANALYSES_CORP_FK", corpusID, TableQuery[Corpora])(_.id)
+  def corpus = foreignKey("ANALYSES_CORP_FK", corpusID, TableQuery[Corpora])(_.id.?)
 }
 
 object Analyses extends BasicCrud[Analyses, Analysis] {
   val table = TableQuery[Analyses]
+}
+
+trait AnalysisRequest {
+  def corpusID: Long
 }

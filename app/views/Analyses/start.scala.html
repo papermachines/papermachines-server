@@ -1,0 +1,10 @@
+@(processor: processors.Processor, formOpt: Option[Form[_]])
+
+@defining(formOpt.getOrElse(processor.form)) { form =>
+  @helper.form(action = routes.Analyses.create(processor.name)) {
+    @helper.input(form("corpusID")) { (id, name, value, args) =>
+      <input type="hidden" name="@name" id="@id" value="@value" @toHtmlArgs(args)>
+    }
+    @helper.inputText(form("noop"))
+  }
+}

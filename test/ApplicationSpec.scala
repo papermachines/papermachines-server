@@ -10,7 +10,7 @@ class ApplicationSpec extends PlaySpec with OneServerPerSuite {
   val myPublicAddress = s"localhost:$port"
   val corporaEndpoint = s"http://$myPublicAddress/corpora"
 
-  "Application" should {
+  "The Application" should {
     val corpusJson = Json.obj("name" -> "Testing", "externalID" -> "-1")
     val textJson = Json.obj("file-url" -> "", "last-modified" -> "1999-01-01T05:00:00.000Z")
 

@@ -17,6 +17,9 @@ GET		/corpora/:id/exportTSV			controllers.Corpora.exportTSV(id: Long)
 POST	/corpora/:id/texts			controllers.Corpora.addTextTo(id: Long)
 
 GET		/corpora/:id/extract		controllers.Analyses.extract(id: Long)
+GET		/corpora/:id/analyses		controllers.Analyses.indexFor(id: Long)
+
+POST	/corpora/:id/:processorName	controllers.Analyses.create(processorName)
 
 
 GET		/texts						controllers.Texts.index
@@ -25,13 +28,10 @@ GET		/texts/:id					controllers.Texts.find(id: Long)
 DELETE	/texts/:id					controllers.Texts.delete(id: Long)
 
 GET		/analyses					controllers.Analyses.index
-POST	/analyses					controllers.Analyses.create
-GET		/analyses/:id				controllers.Analyses.find(id: Long)
-#PUT		/corpora/:id				controllers.Corpora.replace(id: Long)
-DELETE	/analyses/:id				controllers.Analyses.delete(id: Long)
+GET		/analyses/$id<[0-9]+>		controllers.Analyses.find(id: Long)
+DELETE	/analyses/$id<[0-9]+>		controllers.Analyses.delete(id: Long)
 
 GET		/tasks						controllers.Tasks.index
-POST	/tasks						controllers.Tasks.create
 GET		/tasks/:id					controllers.Tasks.find(id: String)
 DELETE	/tasks/:id					controllers.Tasks.delete(id: String)
 

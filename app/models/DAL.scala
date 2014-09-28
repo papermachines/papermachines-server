@@ -30,15 +30,12 @@ abstract class TableWithAutoIncId[T](tag: Tag, name: String, idName: String) ext
 }
 
 object JsonImplicits {
-  implicit object URIReads extends Reads[URI] {
+  implicit object URIFormat extends Format[URI] {
     def reads(json: JsValue) = json match {
       case JsString(x) => Try(new URI(x)).map(JsSuccess(_))
         .getOrElse(JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.validuri")))))
       case _ => JsError(Seq(JsPath() -> Seq(ValidationError("error.expected.uri"))))
     }
-  }
-
-  implicit object URIWrites extends Writes[URI] {
     def writes(uri: URI) = JsString(uri.toString)
   }
 
@@ -128,6 +125,16 @@ object DAL {
         val ddls = existent.map(_.ddl).reduce(_ ++ _)
         ddls.drop
       }
+    }
+  }
+}
+
+trait DBAccess {
+  def withDB[T](block: Session => T) = {
+    import play.api.Play.current
+
+    DB.withSession { implicit s =>
+      block(s)
     }
   }
 }
