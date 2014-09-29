@@ -21,7 +21,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-slick" % "0.6.0.1",
   "org.apache.tika" % "tika-parsers" % "1.5",
   "com.chuusai" % "shapeless_2.10.4" % "2.0.0",
-  "org.chrisjr" % "topic-annotator" % "0.1.0",
+  "org.chrisjr" % "topic-annotator" % "0.1.1",
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "org.scalatestplus" % "play_2.10" % "1.0.0" % "test"
 )
