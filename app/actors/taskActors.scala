@@ -64,35 +64,25 @@ object TaskWorker {
 
 class TaskManager extends Actor {
   val log = Logging(context.system, this)
-  var outside: Option[ActorRef] = None
   var finished = Map[String, TaskCoordinator.Status]()
-
-  def forwardToController[T: ClassTag](t: T) = {
-    outside.fold(log.error("No reference to controller!")) { ref =>
-      ref ! t
-    }
-  }
 
   def receive = {
     case x: TaskManager.In => x match {
       case TaskManager.GetTasks =>
-        outside = Some(sender)
-        forwardToController(TaskManager.TaskNames(context.children.map(_.path.name)))
+      	sender() ! TaskManager.TaskNames(context.children.map(_.path.name))
       case TaskManager.GetCoordinator(name) =>
-        outside = Some(sender)
         val coordinatorProxy = if (finished.contains(name)) {
           context.actorOf(Props(classOf[FakeCoordinator], finished(name)))
         } else {
           context.actorOf(Props(classOf[CoordinatorProxy], context.child(name)))
         }
-        forwardToController(TaskManager.Coordinator(coordinatorProxy))
+        sender() ! TaskManager.Coordinator(coordinatorProxy)
       case TaskManager.StartTask(analyzer, work, params) =>
-        outside = Some(sender)
-        if (work.ts.size == 0) forwardToController(TaskManager.CouldNotStart)
+        if (work.ts.size == 0) sender() ! TaskManager.CouldNotStart
         val uuid = java.util.UUID.randomUUID.toString
         val coordinator = context.actorOf(analyzer.actorProps(self, params), name = uuid)
         coordinator ! work
-        forwardToController(TaskManager.Started(uuid))
+        sender() ! TaskManager.Started(uuid)
       case TaskManager.CoordinatorFinished(name, status) =>
         finished += name -> status
         sender() ! akka.actor.PoisonPill

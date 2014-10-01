@@ -16,49 +16,42 @@ import scala.language.postfixOps
 import scala.util.{ Try, Success, Failure }
 
 object Tasks extends Controller {
-  val taskManager = Actors.taskManager
-  implicit val system = Akka.system
-  implicit val i = inbox()
   implicit val timeout = 10 seconds
 
   def getCoordinator(name: String): ActorRef = {
-    taskManager ! TaskManager.GetCoordinator(name)
-    i.receive(timeout) match {
+    Actors.sendAndAwait(Actors.taskManager, TaskManager.GetCoordinator(name), timeout,
+    {
       case TaskManager.Coordinator(ref) => ref
       case x => throw new IllegalStateException(s"Unknown message $x received.")
-    }
+    })
   }
 
   def index = Action {
-    taskManager ! TaskManager.GetTasks
-    val names = i.receive(timeout) match {
-      case TaskManager.TaskNames(xs) =>
-        xs
-    }
+    val names = Actors.sendAndAwait(Actors.taskManager, TaskManager.GetTasks, timeout, 
+      { case TaskManager.TaskNames(xs) => xs })
     Ok(names.mkString("\n"))
   }
 
   def find(id: String) = Action {
-    val ref = getCoordinator(id)
-    ref ! TaskCoordinator.GetProgress
-    i.receive(timeout) match {
+    Actors.sendAndAwait(getCoordinator(id), TaskCoordinator.GetProgress, timeout,
+     {
       case TaskCoordinator.Done(resultID) =>
         Redirect(routes.Analyses.find(resultID))
       case TaskCoordinator.Progress(amt) =>
         Ok(views.html.Tasks.progress((amt * 100.0).toInt))
       case TaskCoordinator.NotFound =>
         NotFound
-    }
+    })
   }
 
   def startTask[T, R](analyzer: Analyzer[T, R], work: Seq[T], params: TaskManager.Params = Json.obj()): Try[String] = {
-    taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work), params)
-    i.receive(timeout) match {
+    Actors.sendAndAwait(Actors.taskManager, TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(work), params), timeout, 
+     {
       case TaskManager.Started(name) =>
         Success(name)
       case TaskManager.CouldNotStart =>
         Failure(new IllegalStateException("Could not start"))
-    }
+    })
   }
 
   def create = Action {
@@ -101,13 +94,12 @@ object Tasks extends Controller {
    * @return
    */
   def delete(id: String) = Action {
-    val ref = getCoordinator(id)
-    ref ! TaskCoordinator.Cancel
-    i.receive(timeout) match {
+    Actors.sendAndAwait(getCoordinator(id), TaskCoordinator.Cancel, timeout,
+     {
       case TaskCoordinator.Canceled =>
         Ok("Deleted")
       case TaskCoordinator.NotFound =>
         NotFound
-    }
+    })
   }
 }
