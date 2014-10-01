@@ -19,7 +19,7 @@ class AnalysesSpec extends PlaySpec with CorpusFixture with AnalysesCommon {
       val analysisRequest = startAnalysis(corpusID, processor)(procRequest)
       status(analysisRequest) mustEqual ACCEPTED
 
-      val resultUrl = retrieveResultUrl(contentAsString(analysisRequest))
+      val resultUrl = retrieveResultUrl(contentAsString(analysisRequest), retries = 10, wait = 200)
       resultUrl.isDefined shouldBe true
     }
 
@@ -28,7 +28,7 @@ class AnalysesSpec extends PlaySpec with CorpusFixture with AnalysesCommon {
       val analysisRequest = startAnalysis(corpusID, processor)(procRequest)
       status(analysisRequest) mustEqual ACCEPTED
 
-      retrieveResultUrl(contentAsString(analysisRequest)).map({ resultUrl =>
+      retrieveResultUrl(contentAsString(analysisRequest), retries = 10, wait = 200).map({ resultUrl =>
         val result = route(FakeRequest(GET, resultUrl)).getOrElse(fail("Could not retrieve analysis."))
         status(result) mustEqual OK
       }).getOrElse(fail("No result found"))

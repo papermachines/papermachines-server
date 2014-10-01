@@ -20,7 +20,7 @@ object Tasks extends Controller {
   implicit val system = Akka.system
   implicit val i = inbox()
   implicit val timeout = 10 seconds
-  
+
   def getCoordinator(name: String): ActorRef = {
     taskManager ! TaskManager.GetCoordinator(name)
     i.receive(timeout) match {
@@ -71,14 +71,27 @@ object Tasks extends Controller {
         Ok("could not start")
     }
   }
-  
+
   def getResults[R](resultID: Long) = {
     import org.chrisjr.topic_annotator.corpora.Util
     DB.withSession { implicit s =>
       val analysis = models.Analyses.find(resultID)
         .getOrElse(throw new IllegalArgumentException(s"No analysis $resultID found"))
-      Util.unpickle[Array[Try[R]]](new java.io.File(analysis.uri))    
+      Util.unpickle[Array[Try[R]]](new java.io.File(analysis.uri))
     }
+  }
+
+  def getJson(resultID: Long): JsObject = {
+    DB.withSession { implicit s =>
+      val analysis = models.Analyses.find(resultID)
+        .getOrElse(throw new IllegalArgumentException(s"No analysis $resultID found"))
+      val jsonFile = new java.io.File(analysis.uri)
+      val source = scala.io.Source.fromFile(jsonFile, "UTF-8")
+      val text = source.getLines.mkString("\n")
+      source.close()
+      Json.parse(text).as[JsObject]
+    }
+
   }
 
   /**

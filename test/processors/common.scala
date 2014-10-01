@@ -17,15 +17,28 @@ trait AnalysesCommon {
     call(controllers.Analyses.create(processor.name), request)
   }
 
-  def retrieveResultUrl(taskUrl: String): Option[String] = {
+  def getResultID(taskRequest: Future[Result], retries: Int = 10, wait: Int = 200): Long = {
+    val taskUrl = contentAsString(taskRequest)
+
+    val resultUrl = retrieveResultUrl(taskUrl, retries, wait)
+
+    val analysisIDr = "/analyses/([0-9]+)".r
+    
+    resultUrl.getOrElse("") match {
+      case analysisIDr(id) => id.toLong
+      case _ => throw new IllegalStateException("No results found")
+    }
+  }
+  
+  def retrieveResultUrl(taskUrl: String, retries: Int, wait: Int): Option[String] = {
     var resultUrl: Option[String] = None
-    var retries = 10
-    while (resultUrl.isEmpty && retries > 0) {
-      Thread.sleep(200)
+    var retriesRemaining = retries
+    while (resultUrl.isEmpty && retriesRemaining > 0) {
+      Thread.sleep(wait)
       route(FakeRequest(GET, taskUrl)).map { result =>
         resultUrl = redirectLocation(result)
       }
-      retries -= 1
+      retriesRemaining -= 1
     }
     resultUrl
   }

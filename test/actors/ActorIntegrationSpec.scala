@@ -4,6 +4,7 @@ import org.scalatest._
 import org.scalatestplus.play._
 import akka.actor._
 import akka.actor.ActorDSL._
+import akka.testkit._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import play.api.libs.concurrent.Akka
@@ -17,21 +18,17 @@ import scala.util.{ Try, Success, Failure }
 import scala.util.control.Breaks._
 import play.api.libs.json._
 
-class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
-
+class ActorIntegrationSpec extends SpecWithActors {
   def testAnalyzer[T, R](
     analyzer: Analyzer[T, R],
     input: Seq[T],
     onSuccess: Seq[Try[R]] => Unit,
     params: TaskManager.Params = Json.obj(),
     checkInterval: Int = 100)(implicit app: play.api.Application) = {
-    val taskManager = Actors.taskManager
-    implicit val system = Akka.system
-    implicit val i = inbox()
 
     taskManager ! TaskManager.StartTask(analyzer, TaskCoordinator.WorkBatch(input), params)
 
-    val myName = i.receive(1 second) match {
+    val myName = expectMsgPF(1000 millis) {
       case TaskManager.Started(name) =>
         name
     }
@@ -39,12 +36,12 @@ class ActorIntegrationSpec extends PlaySpec with OneAppPerSuite {
     checkProgress(taskManager, myName, onSuccess)
   }
 
-  def checkProgress[R](taskManager: ActorRef, myName: String, onSuccess: Seq[Try[R]] => Unit)(implicit i: ActorDSL.Inbox) = {
+  def checkProgress[R](taskManager: ActorRef, myName: String, onSuccess: Seq[Try[R]] => Unit) = {
     breakable {
       for (_ <- 0 to 100) {
-        val coordinator = controllers.Tasks.getCoordinator(myName)
+        val coordinator = getCoordinator(myName)
         coordinator ! TaskCoordinator.GetProgress
-        i.receive(1 second) match {
+        expectMsgPF(1 second) {
           case x: TaskCoordinator.Out => x match {
             case TaskCoordinator.Progress(amt) =>
               println(f"${amt * 100.0}%2.2f%%")

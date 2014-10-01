@@ -50,6 +50,7 @@ object NoopProcessor extends Processor {
 object Processors {
   val processors = Seq(
     WordCloudProcessor,
+    MalletLdaProcessor,
     NoopProcessor)
   val processorMap: Map[String, Processor] = processors.map(x => x.name -> x).toMap
 

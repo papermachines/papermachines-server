@@ -14,12 +14,9 @@ import org.joda.time.DateTime
 import models.DBAccess
 import models.Text
 import models.FullText
+import models.Analysis
 import org.chrisjr.topic_annotator.corpora._
 import org.chrisjr.topic_annotator.topics._
-import shapeless._
-import syntax.singleton._
-import record._
-import models.Analysis
 
 /**
  * Basic class to run NLP analyses.
@@ -49,8 +46,21 @@ abstract class Analyzer[T, R <% Serializable] extends DBAccess {
 
   var corpusID: Option[Long] = None
   var params: Option[TaskManager.Params] = None
-  
+
   val analysisType: String
+  
+  protected def saveToDb(resultFile: File): Long = {
+    val analysis = models.Analysis(
+      corpusID = corpusID,
+      analysisType = analysisType,
+      params = params.getOrElse(Json.obj()),
+      uri = resultFile.toURI,
+      finishedAt = org.joda.time.DateTime.now())
+
+    withDB { implicit session =>
+      models.Analyses.create(analysis)
+    }   
+  }
   
   /** By default, pickles the results inside the application-wide `resultsDir`.*/
   def onDone(requestID: String, results: Seq[Try[R]]): Long = {
@@ -59,17 +69,7 @@ abstract class Analyzer[T, R <% Serializable] extends DBAccess {
     val resultFile = new File(resultDir, "result")
     Util.pickle(resultFile, results.toArray)
 
-    val analysis = models.Analysis(
-      corpusID = corpusID,
-      analysisType = analysisType,
-      params = params.getOrElse(Json.obj()),
-      uri = resultFile.toURI,
-      finishedAt = org.joda.time.DateTime.now()
-    )
-
-    withDB { implicit session =>
-      models.Analyses.create(analysis)
-    }
+    saveToDb(resultFile)
   }
 
   /** Maintain a pool of workers, reply to status requests, and indicate when finished. */
@@ -112,7 +112,7 @@ abstract class Analyzer[T, R <% Serializable] extends DBAccess {
           results(i) = r
           done += 1
           r match {
-            case Success(x) =>              
+            case Success(x) =>
               log.debug(s"$x done.")
             case Failure(e) =>
               log.error(Logging.stackTraceFor(e))
@@ -181,7 +181,7 @@ object Preprocessors {
 }
 
 object WordCountAnalyzer extends Analyzer[Text, immutable.HashMap[String, Int]] {
-  val analysisType="word-count"
+  val analysisType = "word-count"
   type Params = Unit
   def makeF(params: Params) = {
     { x =>
@@ -199,7 +199,7 @@ object WordCountAnalyzer extends Analyzer[Text, immutable.HashMap[String, Int]] 
 object ExtractAnalyzer extends Analyzer[Text, Text] with DBAccess {
   import org.apache.tika.Tika
   import models.JsonImplicits._
-  
+
   val analysisType = "extract"
 
   case class Params(outputDir: URI)
@@ -238,8 +238,7 @@ object ExtractAnalyzer extends Analyzer[Text, Text] with DBAccess {
     withDB { implicit s =>
       for (
         textTry <- results.filter(_.isSuccess);
-        text <- textTry.toOption
-        if text.id.nonEmpty && text.plaintextUri.nonEmpty
+        text <- textTry.toOption if text.id.nonEmpty && text.plaintextUri.nonEmpty
       ) {
         models.Texts.update(text, text.plaintextUri.get)
       }
@@ -277,48 +276,38 @@ trait TopicModelAnalyzer extends CorpusAnalyzer[JsObject] with DBAccess {
 
   val modelType: TopicModel
 
+  def outputDir: File
+
   def makeF(params: Params) = {
     { corpus =>
       withDB { implicit s =>
         val transformed = corpus.transform(params.preprocessors)
         val annotated = modelType.annotate(transformed, params.tmParams)
-        toPaperMachines(annotated, ???)
-        Json.obj()
+        val json = toPaperMachines(annotated, outputDir)
+        json
       }
-      
+
     }
   }
 
+  def preprocessorsFrom(p: JsObject): Seq[CorpusTransformer] = {
+    ((p \ "preprocessors").asOpt[Seq[String]]).getOrElse(Seq[String]())
+      .map(Json.parse(_).as[JsObject]).flatMap(Preprocessors.fromJson)
+  }
+
   override def parseJson(p: JsObject) = {
-    val preprocessors = ((p \ "prep").asOpt[Seq[JsObject]]).getOrElse(Seq()).flatMap(Preprocessors.fromJson)
+    val preprocessors = preprocessorsFrom(p)
     Params(preprocessors, TopicModelParams.defaultFor(modelType))
   }
-}
 
-object HDPAnalyzer extends TopicModelAnalyzer {
-  val modelType = HDP
-  val analysisType = "hdp"
+  override def onDone(requestID: String, results: Seq[Try[JsObject]]): Long = {
+    val resultDir = new File(Actors.resultsDir, requestID)
+    resultDir.mkdirs()
+    val resultFile = new File(resultDir, "result")
+    val resultWriter = new PrintWriter(resultFile, "UTF-8")
+    resultWriter.print(Json.stringify(results.head.getOrElse(Json.obj("status" -> "KO"))))
+    resultWriter.close()
 
-  class WorkerImpl(f: F) extends Worker(f: F)
-  class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
-  val coordinatorClass = classOf[CoordinatorImpl]
-}
-
-/** Store all known analyzers (with their original types) and retrieve upon request. */
-object Analyzers {
-  import ops.hlist.ToList
-  import ops.record.{ Keys, Values }
-
-  val corpusAnalyzers = ("hdp" ->> HDPAnalyzer) :: HNil
-
-  /** Retrieve the analyzer using its string. */
-  def byName[B <: HList, K <: HList, V <: HList](name: String)(implicit keys: Keys.Aux[B, K],
-    values: Values.Aux[B, V],
-    ktl: ToList[K, Any],
-    vtl: ToList[V, Any]) = {
-    ((corpusAnalyzers.keys.toList zip corpusAnalyzers.values.toList) collect {
-      case (field, value) if field == name => value
-    }).headOption
+    saveToDb(resultFile)
   }
-
 }

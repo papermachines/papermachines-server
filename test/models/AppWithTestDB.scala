@@ -6,6 +6,7 @@ import play.api.db.slick._
 import play.api.test.FakeApplication
 import org.joda.time.DateTime
 import java.nio.file.Files
+import play.api.libs.json.Json
 
 trait AppWithTestDB extends Suite with BeforeAndAfterAll with OneAppPerSuite {
   implicit override lazy val app: FakeApplication =
@@ -40,11 +41,13 @@ trait CorpusFixture extends AppWithTestDB {
     for {
       i <- 1 to 10
       externalID = s"$i"
+      metadata = Json.obj("id" -> externalID)
       uri = new java.net.URI(s"test$i")
       textFile = new java.io.File(tempDir, s"test$i.txt")
       _ = writeText(textFile)
     } yield Text(
       uri = uri,
+      metadata = metadata,
       plaintextUri = Some(textFile.toURI),
       externalID = Some(externalID),
       lastModified = DateTime.parse("1999"))

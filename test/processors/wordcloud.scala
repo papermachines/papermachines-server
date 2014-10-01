@@ -6,12 +6,13 @@ import play.api.test._
 import play.api.test.Helpers._
 import processors._
 import controllers.Analyses
+import actors.SpecWithActors
 import scala.concurrent.Future
 import play.api.mvc.Result
 import scala.util.Try
 import play.api.libs.json._
 
-class WordCloudSpec extends PlaySpec with models.CorpusFixture with AnalysesCommon with TryValues {
+class WordCloudSpec extends SpecWithActors with models.CorpusFixture with AnalysesCommon with TryValues {
   val processor = WordCloudProcessor
 
   "The WordCloudProcessor" should {
@@ -20,16 +21,8 @@ class WordCloudSpec extends PlaySpec with models.CorpusFixture with AnalysesComm
       val result = startAnalysis(corpusID, processor)(params)
       
       status(result) mustEqual ACCEPTED
-      val taskUrl = contentAsString(result)
       
-      val resultUrl = retrieveResultUrl(taskUrl)
-      
-      val analysisIDr = "/analyses/([0-9]+)".r
-      val resultID = resultUrl.getOrElse("") match {
-        case analysisIDr(id) => id.toLong
-        case _ => fail("No results found")
-      }
-      
+      val resultID = getResultID(result)
       val results = controllers.Tasks.getResults[JsObject](resultID)
       results.head mustBe 'success
 
