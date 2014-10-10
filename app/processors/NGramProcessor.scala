@@ -19,39 +19,27 @@ object NGramProcessor extends Processor{
 			(ProcessRequest.apply)(ProcessRequest.unapply))
 			
 	implicit val jsonFormat: Format[ProcessRequest] = Json.format[ProcessRequest]
-	case class Gram(words: Queue[String], freq: Int) extends Ordered[Gram] {
+	case class Gram(words: Seq[String], freq: Int) extends Ordered[Gram] {
 	  import scala.math.Ordered.orderingToOrdered
 		def compare(that: Gram): Int = this.freq compare that.freq
-		def toJS():JsObject = new JsObject(List(("Gram",JsString(words.fold(""){(x, y)=>x++y})), ("Freq", JsNumber(freq))))
+		def toJS() : JsObject = Json.obj(
+		  "Gram" -> Json.toJson(words.mkString),
+		  "Freq" -> Json.toJson(freq)
+		)  
 	}
 	
-	def genGrams(docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document], n: Int): List[Gram] = {
-		var res = Map[Queue[String], Int]()
+	def genGrams(docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document], n: Int): Seq[Gram] = {
+		var res = Map[Seq[String], Int]().withDefaultValue(0)
 		var curr = Queue[String]()
-		for(doc:org.chrisjr.topic_annotator.corpora.Document <- docs){
+		for(doc <- docs){
 			val tokens = doc.tokens.map(_.string)
-			for (t:String<-tokens){
-			  curr=curr.enqueue(t)
-				if (curr.length==n){
-					(res get curr) match{
-						case None => res+=(curr -> 1)
-						case Some(x) => res+=(curr -> (x+1))
-					}
-					var (e:String, curr1:Queue[String])=curr.dequeue
-					curr=curr1
-				}
+			for (gram <- tokens.iterator.sliding(n)) {
+			  res = res.updated(gram, res(gram) + 1)
 			}
 		}
-		var p = PriorityQueue[Gram]()
-		var r = res.toList.map(a=>Gram.apply(a._1, a._2))
-		p++=r
-		var ret = List[Gram]()
-		for(a<-1 to 10){
-		  if (!p.isEmpty){
-		  	ret:+=p.dequeue()
-		  }
-		 }
-		return ret
+		val r = res.toList.map { a => Gram(a._1, a._2) }
+		val p = PriorityQueue[Gram]() ++ r
+		p.takeRight(10).toSeq
 	}
 		object NGramAnalyzer extends actors.CorpusAnalyzer[Result] {
 			import models.CorpusImplicits._
