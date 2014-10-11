@@ -10,12 +10,14 @@ import scala.collection.immutable.Queue
 import scala.collection.mutable.PriorityQueue
 
 object NGramProcessor extends Processor{
+  val defaultTop=10
+  val defaultN=2
 	val name: String = "n-gram"
 
-	case class ProcessRequest(corpusID: Long, n: Int) extends Request
+	case class ProcessRequest(corpusID: Long, n: Int=defaultN, top: Int=defaultTop) extends Request
 	
 	val form: Form[ProcessRequest] = Form(
-			mapping("corpusID" -> longNumber, "n"->number)
+			mapping("corpusID" -> longNumber, "n"->number, "top"->number)
 			(ProcessRequest.apply)(ProcessRequest.unapply))
 			
 	implicit val jsonFormat: Format[ProcessRequest] = Json.format[ProcessRequest]
@@ -28,7 +30,7 @@ object NGramProcessor extends Processor{
 		)  
 	}
 	
-	def genGrams(docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document], n: Int): Seq[Gram] = {
+	def genGrams(docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document], n: Int=defaultN, top: Int=defaultTop): Seq[Gram] = {
 		var res = Map[Seq[String], Int]().withDefaultValue(0)
 		var curr = Queue[String]()
 		for(doc <- docs){
@@ -39,14 +41,14 @@ object NGramProcessor extends Processor{
 		}
 		val r = res.toList.map { a => Gram(a._1, a._2) }
 		val p = PriorityQueue[Gram]() ++ r
-		p.takeRight(10).toSeq
+		p.takeRight(top).toSeq
 	}
 		object NGramAnalyzer extends actors.CorpusAnalyzer[Result] {
 			import models.CorpusImplicits._
 			val analysisType: String = name
 
-			def resultFrom(n: Int = 2, docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document]): JsObject = {
-					val ngrams = genGrams(docs, n)
+			def resultFrom(n: Int, top: Int, docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document]): JsObject = {
+					val ngrams = genGrams(docs, n, top)
 					return JsObject(
 					    List(("ngrams",JsArray(ngrams.map(x=>x.toJS())))))
 			}
@@ -60,7 +62,7 @@ object NGramProcessor extends Processor{
 				{ corpus =>
 					withDB { implicit s =>
 						val tokenized = corpus.transform(preprocessors) // implicit conversion to topic-annotator corpus
-						resultFrom(p.n, tokenized.documents.seq)
+						resultFrom(p.n, p.top, tokenized.documents.seq)
 					}
 				}
 			}
