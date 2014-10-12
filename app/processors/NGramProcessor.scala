@@ -68,15 +68,14 @@ object NGramProcessor extends Processor{
 			}
 
 		// rest is boilerplate and will hopefully be eliminated
+    def parseJson(p: JsObject): Params = {
+      params = Some(p)
+      p.as[ProcessRequest]
+    }
 
-		def parseJson(p: JsObject): Params = {
-				params = Some(p)
-						p.as[ProcessRequest]
-		}
-
-		class WorkerImpl(f: F) extends Worker(f: F)
-		class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
-		val coordinatorClass = classOf[CoordinatorImpl]
+    class WorkerImpl(f: F) extends Worker(f: F)
+    class CoordinatorImpl(replyTo: ActorRef, f: F) extends Coordinator(replyTo, classOf[WorkerImpl], f)
+    val coordinatorClass = classOf[CoordinatorImpl]
 	}
 	val analyzer = NGramAnalyzer
 }
