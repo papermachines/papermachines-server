@@ -26,13 +26,10 @@ class NgramSpec extends SpecWithActors with models.CorpusFixture with AnalysesCo
       //functional tests
       val params = processor.ProcessRequest(corpusID)
       val result = startAnalysis(corpusID, processor)(params)
-      println(result)
-      println(status(result))
-      //status(result) mustEqual ACCEPTED
+      status(result) mustEqual ACCEPTED
       
       val resultID = getResultID(result)
       val results = controllers.Tasks.getResults[JsObject](resultID)
-      println(results)
       results.head mustBe 'success
 
     	//gengram tests

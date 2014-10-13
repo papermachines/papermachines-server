@@ -21,7 +21,7 @@ object NGramProcessor extends Processor{
 			(ProcessRequest.apply)(ProcessRequest.unapply))
 			
 	implicit val jsonFormat: Format[ProcessRequest] = Json.format[ProcessRequest]
-	case class Gram(words: Seq[String], freq: Int) extends Ordered[Gram] {
+	case class Gram(words: Seq[String], freq: Int) extends Ordered[Gram]{
 	  import scala.math.Ordered.orderingToOrdered
 		def compare(that: Gram): Int = this.freq compare that.freq
 		def toJS() : JsObject = Json.obj(
@@ -39,18 +39,16 @@ object NGramProcessor extends Processor{
 			  res = res.updated(gram, res(gram) + 1)
 			}
 		}
-		val r = res.toList.map { a => Gram(a._1, a._2) }
-		val p = PriorityQueue[Gram]() ++ r
-		p.takeRight(top).toSeq
+		res.toList.map({ a => Gram(a._1, a._2) }).sorted.takeRight(top)
 	}
 		object NGramAnalyzer extends actors.CorpusAnalyzer[Result] {
 			import models.CorpusImplicits._
 			val analysisType: String = name
 
 			def resultFrom(n: Int, top: Int, docs: GenSeq[org.chrisjr.topic_annotator.corpora.Document]): JsObject = {
-					val ngrams = genGrams(docs, n, top)
+					val ngrams = genGrams(docs, n, top).map(x=>x.toJS())
 					return JsObject(
-					    List(("ngrams",JsArray(ngrams.map(x=>x.toJS())))))
+					    List(("ngrams",JsArray(ngrams))))
 			}
 
 			type Params = ProcessRequest
