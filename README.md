@@ -1,1 +1,1 @@
-A server that stores texts and runs analyses such as topic modeling on them. Designed for use with [Paper Machines](https://github.com/chrisjr/papermachines), a Zotero extension for text analysis.
+A server that stores texts and runs analyses such as topic modeling on them. Designed for use with [Paper Machines](https://github.com/papermachines/papermachines-client), a Zotero extension for text analysis.
